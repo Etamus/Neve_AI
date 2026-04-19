@@ -1,0 +1,1 @@
+const e="Open WebUI",t="",_=`${t}/api/v1`,s=`${t}/ollama`,a=`${t}/api/v1/audio`,A=`${t}/api/v1/images`,o=`${t}/api/v1/retrieval`,i=void 0,E={file_context:!0,vision:!0,file_upload:!0,web_search:!0,image_generation:!0,code_interpreter:!0,citations:!0,status_updates:!0,usage:void 0,builtin_tools:!0},I=1e3;export{e as A,E as D,A as I,s as O,I as P,o as R,i as W,_ as a,t as b,a as c};
