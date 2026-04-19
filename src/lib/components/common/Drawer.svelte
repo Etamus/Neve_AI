@@ -57,7 +57,7 @@
 	<div
 		bind:this={modalElement}
 		class="modal fixed right-0 bottom-0 left-0 z-999 flex h-screen max-h-[100dvh] w-full justify-center overflow-hidden overscroll-contain bg-black/60"
-		in:fly={{ y: 100, duration: 100 }}
+		in:fly={{ y: 100, duration: 200 }}
 		on:mousedown={() => {
 			show = false;
 		}}

@@ -46,7 +46,8 @@
 		selectedTerminalId,
 		showFileNavPath,
 		showFileNavDir,
-		chatCodeExecutionEnabled
+		chatCodeExecutionEnabled,
+		activeChatIds
 	} from '$lib/stores';
 
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
@@ -84,7 +85,8 @@
 		chatAction,
 		generateMoACompletion,
 		stopTask,
-		getTaskIdsByChatId
+		getTaskIdsByChatId,
+		getModels
 	} from '$lib/apis';
 	import { getTools } from '$lib/apis/tools';
 	import { getModelById } from '$lib/apis/models';
@@ -99,6 +101,7 @@
 	import Messages from '$lib/components/chat/Messages.svelte';
 	import Navbar from '$lib/components/chat/Navbar.svelte';
 	import ChatControls from './ChatControls.svelte';
+	import ModelSettingsSheet from './ModelSettingsSheet.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import Placeholder from './Placeholder.svelte';
 	import FilesOverlay from './MessageInput/FilesOverlay.svelte';
@@ -162,6 +165,45 @@
 	let dragged = false;
 	let generationController = null;
 
+	// Content buffer system: accumulate streaming content in plain JS (outside Svelte 5 proxy)
+	// to avoid triggering deep reactivity on every token.
+	const _contentBuffers = new Map();
+	let _flushRAF = null;
+
+	const flushContentBuffers = () => {
+		let hasChanges = false;
+		for (const [msgId, bufContent] of _contentBuffers) {
+			if (history.messages[msgId] && history.messages[msgId].content !== bufContent) {
+				history.messages[msgId].content = bufContent;
+				history.messages[msgId] = history.messages[msgId];
+				hasChanges = true;
+			}
+		}
+		if (hasChanges && autoScroll) {
+			scheduleScrollToBottom();
+		}
+		// Continue RAF loop while buffers exist
+		if (_contentBuffers.size > 0) {
+			_flushRAF = requestAnimationFrame(flushContentBuffers);
+		} else {
+			_flushRAF = null;
+		}
+	};
+
+	const startContentFlush = () => {
+		if (!_flushRAF) {
+			_flushRAF = requestAnimationFrame(flushContentBuffers);
+		}
+	};
+
+	const stopContentFlush = (msgId) => {
+		_contentBuffers.delete(msgId);
+		if (_contentBuffers.size === 0 && _flushRAF) {
+			cancelAnimationFrame(_flushRAF);
+			_flushRAF = null;
+		}
+	};
+
 	let chat = null;
 	let tags = [];
 
@@ -177,6 +219,37 @@
 	let chatFiles = [];
 	let files = [];
 	let params = {};
+
+	// ── Context size modal state (for auto-loading on send) ──
+	let showContextModal = false;
+	let contextModalSize = 8192;
+	let contextModalModelName = '';
+	let contextModalResolve: ((size: number | null) => void) | null = null;
+
+	function openContextModal(modelName: string): Promise<number | null> {
+		contextModalModelName = modelName;
+		contextModalSize = 8192;
+		showContextModal = true;
+		return new Promise((resolve) => {
+			contextModalResolve = resolve;
+		});
+	}
+
+	function confirmContextModal() {
+		showContextModal = false;
+		if (contextModalResolve) {
+			contextModalResolve(contextModalSize);
+			contextModalResolve = null;
+		}
+	}
+
+	function cancelContextModal() {
+		showContextModal = false;
+		if (contextModalResolve) {
+			contextModalResolve(null);
+			contextModalResolve = null;
+		}
+	}
 
 	// Message queue for storing messages while generating
 	let messageQueue: { id: string; prompt: string; files: any[] }[] = [];
@@ -477,24 +550,28 @@
 	};
 
 	const chatEventHandler = async (event, cb) => {
-		console.log(event);
-
 		if (event.chat_id === $chatId) {
-			await tick();
+			const type = event?.data?.type ?? null;
+			const data = event?.data?.data ?? null;
+
+			// Skip tick() for high-frequency streaming events to prevent backlog
+			if (type !== 'chat:completion' && type !== 'chat:message:delta' && type !== 'message') {
+				await tick();
+			}
+
 			let message = history.messages[event.message_id];
 
 			if (message) {
-				const type = event?.data?.type ?? null;
-				const data = event?.data?.data ?? null;
-
 				if (type === 'status') {
 					if (message?.statusHistory) {
 						message.statusHistory.push(data);
 					} else {
 						message.statusHistory = [data];
 					}
+					history.messages[event.message_id] = message;
 				} else if (type === 'chat:completion') {
 					chatCompletionEventHandler(data, message, event.chat_id);
+					return; // handled by chatCompletionEventHandler
 				} else if (type === 'chat:tasks:cancel') {
 					taskIds = null;
 					const responseMessage = history.messages[history.currentId];
@@ -503,7 +580,13 @@
 						history.messages[messageId].done = true;
 					}
 				} else if (type === 'chat:message:delta' || type === 'message') {
-					message.content += data.content;
+					// Buffer content outside Svelte proxy to avoid reactive cascade per token
+					if (!_contentBuffers.has(event.message_id)) {
+						_contentBuffers.set(event.message_id, message.content ?? '');
+					}
+					_contentBuffers.set(event.message_id, _contentBuffers.get(event.message_id) + data.content);
+					startContentFlush();
+					return; // handled by content buffer flush
 				} else if (type === 'chat:message' || type === 'replace') {
 					message.content = data.content;
 				} else if (type === 'chat:message:files' || type === 'files') {
@@ -605,7 +688,10 @@
 					console.log('Unknown message type', data);
 				}
 
-				history.messages[event.message_id] = message;
+				// Skip reactive trigger for chat:completion — handled by chatCompletionEventHandler with RAF throttling
+				if (type !== 'chat:completion') {
+					history.messages[event.message_id] = message;
+				}
 			}
 		}
 	};
@@ -988,14 +1074,29 @@
 		}
 	};
 
+	let contentsDebounceTimer = null;
+	let lastContentsFingerprint = '';
+
 	const onHistoryChange = (history) => {
 		if (history) {
-			cancelAnimationFrame(contentsRAF);
-			contentsRAF = requestAnimationFrame(() => {
-				getContents();
-				contentsRAF = null;
-			});
+			// Skip entirely while streaming — artifacts will be updated
+			// directly by chatCompletionEventHandler when generation completes
+			if (_flushRAF) return;
+
+			clearTimeout(contentsDebounceTimer);
+			contentsDebounceTimer = setTimeout(() => {
+				contentsDebounceTimer = null;
+				const messages = history ? createMessagesList(history, history.currentId) : [];
+				const lastAssistant = messages.filter(m => m?.role !== 'user').pop();
+				const fingerprint = lastAssistant ? `${lastAssistant.id}:${lastAssistant.content?.length ?? 0}` : '';
+				if (fingerprint !== lastContentsFingerprint) {
+					lastContentsFingerprint = fingerprint;
+					getContents();
+				}
+			}, 300);
 		} else {
+			clearTimeout(contentsDebounceTimer);
+			lastContentsFingerprint = '';
 			artifactContents.set([]);
 		}
 	};
@@ -1038,7 +1139,7 @@
                         </body>
                         </html>
                     `;
-					contents = [...contents, { type: 'iframe', content: renderedContent }];
+					contents = [...contents, { type: 'iframe', content: renderedContent, rawHtml: htmlContent, rawCss: cssContent, rawJs: jsContent }];
 				} else {
 					// Check for SVG content
 					for (const block of codeBlocks) {
@@ -1333,7 +1434,6 @@
 	};
 
 	let scrollRAF = null;
-	let contentsRAF = null;
 	const scheduleScrollToBottom = () => {
 		if (!scrollRAF) {
 			scrollRAF = requestAnimationFrame(async () => {
@@ -1621,17 +1721,21 @@
 			message.sources = sources;
 		}
 
+		// Initialize buffer for this message if not already present
+		if (!_contentBuffers.has(message.id)) {
+			_contentBuffers.set(message.id, message.content ?? '');
+		}
+
 		if (choices) {
 			if (choices[0]?.message?.content) {
-				// Non-stream response
-				message.content += choices[0]?.message?.content;
+				// Non-stream response — still buffer it
+				_contentBuffers.set(message.id, (_contentBuffers.get(message.id) ?? '') + choices[0].message.content);
 			} else {
-				// Stream response
+				// Stream response — accumulate in plain JS buffer (no proxy mutation)
 				let value = choices[0]?.delta?.content ?? '';
-				if (message.content == '' && value == '\n') {
-					console.log('Empty response');
-				} else {
-					message.content += value;
+				let current = _contentBuffers.get(message.id) ?? '';
+				if (!(current === '' && value === '\n')) {
+					_contentBuffers.set(message.id, current + value);
 
 					if (navigator.vibrate && ($settings?.hapticFeedback ?? false)) {
 						navigator.vibrate(5);
@@ -1639,13 +1743,13 @@
 
 					// Emit chat event for TTS (only when call overlay is active)
 					if ($showCallOverlay) {
+						const buffered = _contentBuffers.get(message.id);
 						const messageContentParts = getMessageContentParts(
-							removeAllDetails(message.content),
+							removeAllDetails(buffered),
 							$config?.audio?.tts?.split_on ?? 'punctuation'
 						);
 						messageContentParts.pop();
 
-						// dispatch only last sentence and make sure it hasn't been dispatched before
 						if (
 							messageContentParts.length > 0 &&
 							messageContentParts[messageContentParts.length - 1] !== message.lastSentence
@@ -1666,8 +1770,7 @@
 		}
 
 		if (content) {
-			// REALTIME_CHAT_SAVE is disabled
-			message.content = content;
+			_contentBuffers.set(message.id, content);
 
 			if (navigator.vibrate && ($settings?.hapticFeedback ?? false)) {
 				navigator.vibrate(5);
@@ -1675,13 +1778,13 @@
 
 			// Emit chat event for TTS (only when call overlay is active)
 			if ($showCallOverlay) {
+				const buffered = _contentBuffers.get(message.id);
 				const messageContentParts = getMessageContentParts(
-					removeAllDetails(message.content),
+					removeAllDetails(buffered),
 					$config?.audio?.tts?.split_on ?? 'punctuation'
 				);
 				messageContentParts.pop();
 
-				// dispatch only last sentence and make sure it hasn't been dispatched before
 				if (
 					messageContentParts.length > 0 &&
 					messageContentParts[messageContentParts.length - 1] !== message.lastSentence
@@ -1708,10 +1811,21 @@
 			message.usage = usage;
 		}
 
-		history.messages[message.id] = message;
-
 		if (done) {
+			// Flush final buffered content to the proxy
+			const finalContent = _contentBuffers.get(message.id) ?? message.content;
+			message.content = finalContent;
+			stopContentFlush(message.id);
+
+			// Clear artifact debounce — we'll call getContents() directly below
+			clearTimeout(contentsDebounceTimer);
+			contentsDebounceTimer = null;
+			lastContentsFingerprint = '';
+
 			message.done = true;
+
+			// Immediately remove this chat from activeChatIds so spinner stops
+			activeChatIds.update((ids) => { ids.delete(chatId); return new Set(ids); });
 
 			if ($settings.responseAutoCopy) {
 				copyToClipboard(message.content);
@@ -1753,19 +1867,30 @@
 				scrollToBottom();
 			}
 
+			// Update artifacts now that generation is complete
+			getContents();
+
+			// Auto-open artifacts panel if HTML/SVG content was detected
+			const artContents = get(artifactContents);
+			if (
+				artContents && artContents.length > 0 &&
+				($settings?.detectArtifacts ?? true) &&
+				!$mobile
+			) {
+				showArtifacts.set(true);
+				showControls.set(true);
+			}
+
 			await chatCompletedHandler(
 				chatId,
 				message.model,
 				message.id,
 				createMessagesList(history, message.id)
 			);
-		}
-
-		console.log(data);
-		await tick();
-
-		if (autoScroll) {
-			scheduleScrollToBottom();
+		} else {
+			// Start periodic flush (200ms) — this is the ONLY place reactive updates
+			// happen during streaming, replacing per-token proxy mutations
+			startContentFlush();
 		}
 	};
 
@@ -1805,18 +1930,22 @@
 						// Check if another model is already loaded
 						const currentlyLoaded = loadedModels.length > 0 ? loadedModels[0] : null;
 
-						let confirmMsg = currentlyLoaded
-							? `O modelo "${model.name ?? modelId}" não está carregado. Atualmente carregado: "${currentlyLoaded.id}". Deseja descarregar o modelo atual e carregar este?`
-							: `O modelo "${model.name ?? modelId}" não está carregado. Deseja carregá-lo agora?`;
-
-						if (!confirm(confirmMsg)) {
-							return;
+						// Show context size modal instead of browser confirm
+						const chosenSize = await openContextModal(model.name ?? modelId);
+						if (chosenSize === null) {
+							return; // User cancelled
 						}
 
 						// Unload current model if any, then load the selected one
 						toast.info($i18n.t('Loading model... Please wait.'));
 						if (currentlyLoaded) {
-							await unloadLocalModel(localStorage.token, currentlyLoaded.id);
+							try {
+								await unloadLocalModel(localStorage.token, currentlyLoaded.id);
+							} catch (unloadErr) {
+								// Model may have already been cleaned up by _cleanup_stale (process died).
+								// The backend auto-unloads other models during load_model anyway, so proceed.
+								console.warn('Could not explicitly unload previous model (may already be inactive):', unloadErr);
+							}
 						}
 						const llamacppInfo = (model as any).llamacpp ?? {};
 
@@ -1831,15 +1960,27 @@
 							} catch (_) {}
 						}
 
-						await loadLocalModel(
+						const doLoad = () => loadLocalModel(
 							localStorage.token,
 							llamacppInfo.filename ?? modelId,
 							llamacppInfo.n_gpu_layers ?? -1,
-							llamacppInfo.n_ctx ?? 8192,
-							llamacppInfo.mmproj_filename ?? null,
+							chosenSize,
+							null, // mmproj auto-detected by backend
 							resolvedCacheType || 'q8_0'
 						);
+						try {
+							await doLoad();
+						} catch (firstErr) {
+							// First attempt failed (port/resources from previous model may not
+							// be fully released yet). Wait a moment and retry automatically so
+							// the user doesn't have to press Send again.
+							console.warn('First load attempt failed, retrying in 3s...', firstErr);
+							await new Promise((r) => setTimeout(r, 3000));
+							await doLoad(); // re-throws if still failing → outer catch handles it
+						}
 						toast.success($i18n.t('Model loaded successfully!'));
+						// Refresh models store so n_ctx is up to date
+						models.set(await getModels(localStorage.token, null, false, true));
 					}
 				} catch (err: any) {
 					console.error('LlamaCpp model check failed:', err);
@@ -2456,6 +2597,13 @@
 	};
 
 	const stopResponse = async () => {
+		// Cancel pending content flush
+		if (_flushRAF) {
+			cancelAnimationFrame(_flushRAF);
+			_flushRAF = null;
+		}
+		_contentBuffers.clear();
+
 		if (taskIds) {
 			for (const taskId of taskIds) {
 				const res = await stopTask(localStorage.token, taskId).catch((error) => {
@@ -2773,6 +2921,37 @@
 	}}
 />
 
+{#if showContextModal}
+	<div class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40" transition:fade={{ duration: 80 }}>
+		<div class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-xl mx-4 w-80 flex flex-col gap-3">
+			<p class="text-sm font-semibold text-gray-900 dark:text-white">Tamanho do Contexto</p>
+			<div class="flex flex-col gap-1.5 max-h-72 overflow-y-auto scrollbar-none">
+				{#each [2048, 4096, 8192, 16384, 32768, 65536] as sz}
+					<button
+						class="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-left transition {contextModalSize === sz ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+						on:click={() => (contextModalSize = sz)}
+					>
+						<span>{sz.toLocaleString()} tokens</span>
+						{#if sz === 8192}
+							<span class="text-[10px] opacity-60">(padrão)</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+			<div class="flex justify-end gap-2 mt-1">
+				<button
+					class="px-4 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium"
+					on:click={cancelContextModal}
+				>Cancelar</button>
+				<button
+					class="px-4 py-1.5 text-xs rounded-lg bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
+					on:click={confirmContextModal}
+				>Confirmar</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <div
 	class="h-screen max-h-[100dvh] w-full max-w-full flex flex-col"
 	id="chat-container"
@@ -2786,7 +2965,7 @@
 				/>
 
 				<div
-					class="absolute top-0 left-0 w-full h-full bg-linear-to-t from-white to-white/85 dark:from-gray-900 dark:to-gray-900/90 z-0"
+					class="absolute top-0 left-0 w-full h-full bg-linear-to-t from-white to-white/85 dark:from-black dark:to-black/90 z-0"
 				/>
 			{:else if $settings?.backgroundImageUrl ?? $config?.license_metadata?.background_image_url ?? null}
 				<div
@@ -2796,7 +2975,7 @@
 				/>
 
 				<div
-					class="absolute top-0 left-0 w-full h-full bg-linear-to-t from-white to-white/85 dark:from-gray-900 dark:to-gray-900/90 z-0"
+					class="absolute top-0 left-0 w-full h-full bg-linear-to-t from-white to-white/85 dark:from-black dark:to-black/90 z-0"
 				/>
 			{/if}
 
@@ -3015,6 +3194,12 @@
 						{/if}
 					</div>
 				</Pane>
+
+				<ModelSettingsSheet
+					bind:params
+					bind:chatFiles
+					selectedModelName={$models.find((m) => m.id === selectedModelIds?.at(0))?.name ?? selectedModelIds?.at(0) ?? ''}
+				/>
 
 				<ChatControls
 					bind:this={controlPaneComponent}

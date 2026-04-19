@@ -722,6 +722,7 @@
 				StarterKit.configure({
 					link: link,
 					code: false, // Disabled in favor of FixedCode (see workaround above)
+					dropcursor: false,
 					// When rich text is off, disable Strike from StarterKit so we can
 					// re-add it below without its Mod-Shift-s shortcut (which conflicts
 					// with the Toggle Sidebar shortcut). When rich text is on, the user
@@ -1040,6 +1041,7 @@
 										editor.commands.enter(); // Nova linha como parágrafo
 									}
 									view.dispatch(view.state.tr.scrollIntoView()); // Move viewport to the cursor
+									eventDispatch('keydown', { event });
 									event.preventDefault();
 									return true;
 								} else {
@@ -1067,6 +1069,7 @@
 								if (event.key === 'Enter' && event.shiftKey && !event.ctrlKey && !event.metaKey) {
 									editor.commands.setHardBreak(); // Insert a hard break
 									view.dispatch(view.state.tr.scrollIntoView()); // Move viewport to the cursor
+									eventDispatch('keydown', { event });
 									event.preventDefault();
 									return true;
 								}

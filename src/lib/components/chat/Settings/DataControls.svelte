@@ -145,9 +145,9 @@
 
 			<div>
 				<div class="py-0.5 flex w-full justify-between">
-					<div class="self-center text-xs">{$i18n.t('Import Chats')}</div>
+					<div class="self-center text-sm">{$i18n.t('Import Chats')}</div>
 					<button
-						class="p-1 px-3 text-xs flex rounded-sm transition"
+						class="p-1 px-3 text-sm flex rounded-sm transition"
 						on:click={() => {
 							chatImportInputElement.click();
 						}}
@@ -161,9 +161,9 @@
 			{#if $user?.role === 'admin' || ($user.permissions?.chat?.export ?? true)}
 				<div>
 					<div class="py-0.5 flex w-full justify-between">
-						<div class="self-center text-xs">{$i18n.t('Export Chats')}</div>
+						<div class="self-center text-sm">{$i18n.t('Export Chats')}</div>
 						<button
-							class="p-1 px-3 text-xs flex rounded-sm transition"
+						class="p-1 px-3 text-sm flex rounded-sm transition"
 							on:click={() => {
 								exportChats();
 							}}
@@ -177,9 +177,9 @@
 
 			<div>
 				<div class="py-0.5 flex w-full justify-between">
-					<div class="self-center text-xs">{$i18n.t('Delete All Chats')}</div>
+					<div class="self-center text-sm">{$i18n.t('Delete All Chats')}</div>
 					<button
-						class="p-1 px-3 text-xs flex rounded-sm transition"
+						class="p-1 px-3 text-sm flex rounded-sm transition"
 						on:click={() => {
 							showDeleteConfirmDialog = true;
 						}}
@@ -196,9 +196,9 @@
 
 			<div>
 				<div class="py-0.5 flex w-full justify-between">
-					<div class="self-center text-xs">{$i18n.t('Manage Files')}</div>
+					<div class="self-center text-sm">{$i18n.t('Manage Files')}</div>
 					<button
-						class="p-1 px-3 text-xs flex rounded-sm transition"
+						class="p-1 px-3 text-sm flex rounded-sm transition"
 						on:click={() => {
 							showFilesModal = true;
 						}}

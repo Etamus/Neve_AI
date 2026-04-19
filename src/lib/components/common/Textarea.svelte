@@ -12,6 +12,7 @@
 		'w-full rounded-lg px-3.5 py-2 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-hidden  h-full';
 	export let ariaLabel = null;
 
+	export let spellcheck: boolean | null = null;
 	export let onInput = () => {};
 	export let onBlur = () => {};
 
@@ -60,6 +61,7 @@
 	{rows}
 	{required}
 	{readonly}
+	spellcheck={spellcheck !== null ? spellcheck : undefined}
 	on:input={(e) => {
 		resize();
 

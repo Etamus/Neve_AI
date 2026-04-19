@@ -2,6 +2,7 @@
 	import { getContext } from 'svelte';
 	const i18n = getContext('i18n');
 	import WebSearchResults from '../WebSearchResults.svelte';
+	import GlobeAlt from '$lib/components/icons/GlobeAlt.svelte';
 	import Search from '$lib/components/icons/Search.svelte';
 	import { t } from 'i18next';
 
@@ -12,37 +13,29 @@
 {#if !status?.hidden}
 	<div class="status-description flex items-center gap-2 py-0.5 w-full text-left">
 		{#if status?.action === 'web_search' && (status?.urls || status?.items)}
-			<WebSearchResults {status}>
-				<div class="flex flex-col justify-center -space-y-0.5">
-					<div
-						class="{(done || status?.done) === false
-							? 'shimmer'
-							: ''} line-clamp-1 text-wrap"
-					>
-						<!-- $i18n.t("Generating search query") -->
-						<!-- $i18n.t("No search query generated") -->
-						<!-- $i18n.t('Searched {{count}} sites') -->
-						{#if status?.description?.includes('{{count}}')}
-							{$i18n.t(status?.description, {
-								count: (status?.urls || status?.items).length
-							})}
-						{:else if status?.description === 'No search query generated'}
-							{$i18n.t('No search query generated')}
-						{:else if status?.description === 'Generating search query'}
-							{$i18n.t('Generating search query')}
-						{:else}
-							{status?.description}
-						{/if}
-					</div>
-				</div>
+			<WebSearchResults {status} done={done || status?.done}>
+				<span class="text-sm">
+					{#if status?.description?.includes('{{count}}')}
+						{$i18n.t(status?.description, {
+							count: (status?.urls || status?.items).length
+						})}
+					{:else if status?.description === 'No search query generated'}
+						{$i18n.t('No search query generated')}
+					{:else if status?.description === 'Generating search query'}
+						{$i18n.t('Generating search query')}
+					{:else}
+						{status?.description}
+					{/if}
+				</span>
 			</WebSearchResults>
 		{:else if status?.action === 'knowledge_search'}
 			<div class="flex flex-col justify-center -space-y-0.5">
 				<div
-					class="{(done || status?.done) === false
+					class="flex items-center gap-2 py-0.5 text-sm {(done || status?.done) === false
 						? 'shimmer'
-						: ''} text-gray-500 dark:text-gray-500 line-clamp-1 text-wrap"
+						: ''} text-gray-500 dark:text-gray-400 line-clamp-1 text-wrap"
 				>
+					<Search className="size-4 shrink-0" />
 					{$i18n.t(`Searching Knowledge for "{{searchQuery}}"`, {
 						searchQuery: status.query
 					})}
@@ -51,25 +44,19 @@
 		{:else if status?.action === 'web_search_queries_generated' && status?.queries}
 			<div class="flex flex-col justify-center -space-y-0.5">
 				<div
-					class="{(done || status?.done) === false
-						? 'shimmer'
-						: ''} text-gray-500 dark:text-gray-500 line-clamp-1 text-wrap"
+					class="flex items-center gap-2 py-0.5 text-sm text-gray-500 dark:text-gray-400"
 				>
-					{$i18n.t(`Searching`)}
+					<GlobeAlt className="size-4 shrink-0" strokeWidth="1.5" />
+					<span class="{(done || status?.done) === false ? 'shimmer' : ''}">{$i18n.t(`Searching`)}</span>
 				</div>
 
-				<div class=" flex gap-1 flex-wrap mt-2">
+				<div class="flex gap-1.5 flex-wrap mt-2 pl-6">
 					{#each status.queries as query, idx (query)}
 						<div
-							class="bg-gray-50 dark:bg-gray-850 flex rounded-lg py-1 px-2 items-center gap-1 text-xs"
+							class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-600 dark:text-gray-300"
 						>
-							<div>
-								<Search className="size-3" />
-							</div>
-
-							<span class="line-clamp-1">
-								{query}
-							</span>
+							<Search className="size-3" />
+							<span class="line-clamp-1">{query}</span>
 						</div>
 					{/each}
 				</div>
@@ -77,25 +64,19 @@
 		{:else if status?.action === 'queries_generated' && status?.queries}
 			<div class="flex flex-col justify-center -space-y-0.5">
 				<div
-					class="{(done || status?.done) === false
-						? 'shimmer'
-						: ''} text-gray-500 dark:text-gray-500 line-clamp-1 text-wrap"
+					class="flex items-center gap-2 py-0.5 text-sm text-gray-500 dark:text-gray-400"
 				>
-					{$i18n.t(`Querying`)}
+					<GlobeAlt className="size-4 shrink-0" strokeWidth="1.5" />
+					<span class="{(done || status?.done) === false ? 'shimmer' : ''}">{$i18n.t(`Querying`)}</span>
 				</div>
 
-				<div class=" flex gap-1 flex-wrap mt-2">
+				<div class="flex gap-1.5 flex-wrap mt-2 pl-6">
 					{#each status.queries as query, idx (query)}
 						<div
-							class="bg-gray-50 dark:bg-gray-850 flex rounded-lg py-1 px-2 items-center gap-1 text-xs"
+							class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-600 dark:text-gray-300"
 						>
-							<div>
-								<Search className="size-3" />
-							</div>
-
-							<span class="line-clamp-1">
-								{query}
-							</span>
+							<Search className="size-3" />
+							<span class="line-clamp-1">{query}</span>
 						</div>
 					{/each}
 				</div>
@@ -103,10 +84,11 @@
 		{:else if status?.action === 'sources_retrieved' && status?.count !== undefined}
 			<div class="flex flex-col justify-center -space-y-0.5">
 				<div
-					class="{(done || status?.done) === false
+					class="flex items-center gap-2 py-0.5 text-sm {(done || status?.done) === false
 						? 'shimmer'
-						: ''} text-gray-500 dark:text-gray-500 line-clamp-1 text-wrap"
+						: ''} text-gray-500 dark:text-gray-400 line-clamp-1 text-wrap"
 				>
+					<GlobeAlt className="size-4 shrink-0" strokeWidth="1.5" />
 					{#if status.count === 0}
 						{$i18n.t('No sources found')}
 					{:else if status.count === 1}
@@ -120,15 +102,16 @@
 							count: status.count
 						})}
 					{/if}
-				</div>
+					</div>
 			</div>
 		{:else}
 			<div class="flex flex-col justify-center -space-y-0.5">
 				<div
-					class="{(done || status?.done) === false
+					class="flex items-center gap-2 py-0.5 text-sm {(done || status?.done) === false
 						? 'shimmer'
-						: ''} text-gray-500 dark:text-gray-500 line-clamp-1 text-wrap"
+						: ''} text-gray-500 dark:text-gray-400 line-clamp-1 text-wrap"
 				>
+					<GlobeAlt className="size-4 shrink-0" strokeWidth="1.5" />
 					<!-- $i18n.t(`Searching "{{searchQuery}}"`) -->
 					{#if status?.description?.includes('{{searchQuery}}')}
 						{$i18n.t(status?.description, {
@@ -143,7 +126,7 @@
 					{:else}
 						{status?.description}
 					{/if}
-				</div>
+					</div>
 			</div>
 		{/if}
 	</div>

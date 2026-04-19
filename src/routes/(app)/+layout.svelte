@@ -368,7 +368,7 @@
 {#if $user}
 	<div class="app relative">
 		<div
-			class=" text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-900 h-screen max-h-[100dvh] overflow-auto flex flex-row"
+			class=" text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-950 h-screen max-h-[100dvh] overflow-auto flex flex-row"
 		>
 			{#if !['user', 'admin'].includes($user?.role)}
 				<AccountPending />

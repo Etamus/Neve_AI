@@ -443,7 +443,7 @@ export const copyToClipboard = async (text, html = null, formatted = false) => {
 						overflow: auto;
 					}
 					code {
-						font-family: 'Geist Mono', monospace;
+						font-family: 'Segoe UI', monospace;
 						font-size: 14px;
 					}
 					.hljs-keyword { color: #d73a49; }

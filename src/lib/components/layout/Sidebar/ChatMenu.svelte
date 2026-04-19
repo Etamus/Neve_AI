@@ -1,6 +1,6 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
-	import { flyAndScale } from '$lib/utils/transitions';
+	import { fade } from 'svelte/transition';
 	import { getContext, createEventDispatcher, tick } from 'svelte';
 
 	import fileSaver from 'file-saver';
@@ -292,76 +292,19 @@
 
 	<div slot="content">
 		<DropdownMenu.Content
-			class="select-none w-full max-w-[200px] rounded-2xl px-1 py-1  border border-gray-100  dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg transition"
+			class="select-none w-full max-w-[200px] rounded-md px-1 py-1 border border-gray-100 dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-md"
 			sideOffset={-2}
 			side="bottom"
 			align="start"
-			transition={flyAndScale}
+			transition={(e) => fade(e, { duration: 100 })}
 		>
 			{#if $user?.role === 'admin' || ($user.permissions?.chat?.share ?? true)}
-				<DropdownMenu.Item
-					draggable="false"
-					class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800  rounded-xl"
-					on:click={() => {
-						shareHandler();
-					}}
-				>
-					<Share strokeWidth="1.5" />
-					<div class="flex items-center">{$i18n.t('Share')}</div>
-				</DropdownMenu.Item>
+				<!-- Share removido conforme solicitado -->
 			{/if}
-
-			<DropdownMenu.Sub>
-				<DropdownMenu.SubTrigger
-					draggable="false"
-					class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl"
-				>
-					<Download strokeWidth="1.5" />
-
-					<div class="flex items-center">{$i18n.t('Download')}</div>
-				</DropdownMenu.SubTrigger>
-				<DropdownMenu.SubContent
-					class="select-none w-full rounded-2xl p-1 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg border border-gray-100  dark:border-gray-800"
-					transition={flyAndScale}
-					sideOffset={8}
-				>
-					{#if $user?.role === 'admin' || ($user.permissions?.chat?.export ?? true)}
-						<DropdownMenu.Item
-							draggable="false"
-							class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl"
-							on:click={() => {
-								downloadJSONExport();
-							}}
-						>
-							<div class="flex items-center line-clamp-1">{$i18n.t('Export chat (.json)')}</div>
-						</DropdownMenu.Item>
-					{/if}
-
-					<DropdownMenu.Item
-						draggable="false"
-						class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl"
-						on:click={() => {
-							downloadTxt();
-						}}
-					>
-						<div class="flex items-center line-clamp-1">{$i18n.t('Plain text (.txt)')}</div>
-					</DropdownMenu.Item>
-
-					<DropdownMenu.Item
-						draggable="false"
-						class="flex gap-2 items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl select-none w-full"
-						on:click={() => {
-							downloadPdf();
-						}}
-					>
-						<div class="flex items-center line-clamp-1">{$i18n.t('PDF document (.pdf)')}</div>
-					</DropdownMenu.Item>
-				</DropdownMenu.SubContent>
-			</DropdownMenu.Sub>
 
 			<DropdownMenu.Item
 				draggable="false"
-				class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl"
+				class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-sm"
 				on:click={() => {
 					renameHandler();
 				}}
@@ -374,7 +317,7 @@
 
 			<DropdownMenu.Item
 				draggable="false"
-				class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl"
+				class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-sm"
 				on:click={() => {
 					pinHandler();
 				}}
@@ -390,7 +333,7 @@
 
 			<DropdownMenu.Item
 				draggable="false"
-				class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl"
+				class="flex gap-2 items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-sm"
 				on:click={() => {
 					cloneChatHandler();
 				}}
@@ -403,21 +346,21 @@
 				<DropdownMenu.Sub>
 					<DropdownMenu.SubTrigger
 						draggable="false"
-						class="flex gap-2 items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl select-none w-full"
+						class="flex gap-2 items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-sm select-none w-full"
 					>
 						<Folder />
 
 						<div class="flex items-center">{$i18n.t('Move')}</div>
 					</DropdownMenu.SubTrigger>
 					<DropdownMenu.SubContent
-						class="select-none w-full max-w-[200px] rounded-2xl p-1 z-50 bg-white dark:bg-gray-850 dark:text-white border border-gray-100  dark:border-gray-800 shadow-lg max-h-52 overflow-y-auto scrollbar-hidden"
-						transition={flyAndScale}
+						class="select-none w-full max-w-[200px] rounded-md p-1 z-50 bg-white dark:bg-gray-850 dark:text-white border border-gray-100 dark:border-gray-800 shadow-md max-h-52 overflow-y-auto scrollbar-hidden"
+					transition={(e) => fade(e, { duration: 100 })}
 						sideOffset={8}
 					>
 						{#each $folders.sort((a, b) => b.updated_at - a.updated_at) as folder}
 							<DropdownMenu.Item
 								draggable="false"
-								class="flex gap-2 items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl overflow-hidden"
+								class="flex gap-2 items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-sm overflow-hidden"
 								on:click={() => {
 									moveChatHandler(chatId, folder.id);
 								}}
@@ -435,7 +378,7 @@
 
 			<DropdownMenu.Item
 				draggable="false"
-				class="flex  gap-2  items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl"
+				class="flex  gap-2  items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-sm"
 				on:click={() => {
 					deleteHandler();
 				}}

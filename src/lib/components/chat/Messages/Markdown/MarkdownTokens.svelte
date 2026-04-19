@@ -151,7 +151,7 @@
 				{save}
 				{preview}
 				edit={editCodeBlock}
-				stickyButtonsClassName={topPadding ? 'top-10' : 'top-0'}
+				stickyButtonsClassName={topPadding ? 'top-0' : 'top-0'}
 				onSave={(value) => {
 					onSave({
 						raw: token.raw,
@@ -173,7 +173,7 @@
 					dir="auto"
 				>
 					<thead
-						class="text-xs text-gray-700 uppercase bg-white dark:bg-gray-900 dark:text-gray-400 border-none"
+						class="text-xs text-gray-700 uppercase bg-white dark:bg-gray-950 dark:text-gray-400 border-none"
 					>
 						<tr class="">
 							{#each token.header as header, headerIdx}
@@ -199,7 +199,7 @@
 					</thead>
 					<tbody>
 						{#each token.rows as row, rowIdx}
-							<tr class="bg-white dark:bg-gray-900 text-xs">
+							<tr class="bg-white dark:bg-gray-950 text-xs">
 								{#each row ?? [] as cell, cellIdx}
 									<td
 										class="px-3! py-2! text-gray-900 dark:text-white w-max {token.rows.length -
@@ -367,36 +367,30 @@
 				open={false}
 				className="w-full space-y-1"
 			/>
-		{:else if textContent.length > 0}
+		{:else}
 			<Collapsible
 				title={token.summary}
-				open={$settings?.expandDetails ?? false}
+				open={textContent.length > 0 ? ($settings?.expandDetails ?? false) : false}
+				disabled={textContent.length === 0}
 				attributes={token?.attributes}
 				className="w-full space-y-1"
 				dir="auto"
 			>
 				<div class=" mb-1.5" slot="content">
-					<svelte:self
-						id={`${id}-${tokenIdx}-d`}
-						tokens={marked.lexer(decode(token.text))}
-						attributes={token?.attributes}
-						{done}
-						{editCodeBlock}
-						{onTaskClick}
-						{sourceIds}
-						{onSourceClick}
-					/>
+					{#if textContent.length > 0}
+						<svelte:self
+							id={`${id}-${tokenIdx}-d`}
+							tokens={marked.lexer(decode(token.text))}
+							attributes={token?.attributes}
+							{done}
+							{editCodeBlock}
+							{onTaskClick}
+							{sourceIds}
+							{onSourceClick}
+						/>
+					{/if}
 				</div>
 			</Collapsible>
-		{:else}
-			<Collapsible
-				title={token.summary}
-				open={false}
-				disabled={true}
-				attributes={token?.attributes}
-				className="w-full space-y-1"
-				dir="auto"
-			/>
 		{/if}
 	{:else if token.type === 'html'}
 		<HtmlToken {id} {token} {onSourceClick} />

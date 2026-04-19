@@ -3,9 +3,8 @@
 	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
 	import { toast } from 'svelte-sonner';
 
-	// Disable all non-error toast notifications (success, info, warning, message)
-	// Keep toast.error intact so error toasts still display
-	toast.success = () => {};
+	// Disable non-essential toast notifications (info, warning, message)
+	// Keep toast.error and toast.success for actionable feedback
 	toast.info = () => {};
 	toast.warning = () => {};
 	toast.message = () => {};

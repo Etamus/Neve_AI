@@ -194,7 +194,7 @@
 
 <FileItemModal bind:show={showFileItemModal} item={selectedFile} edit={false} />
 
-<Modal size="xl" bind:show>
+<Modal size="md" bind:show>
 	<div>
 		<div class="flex justify-between dark:text-gray-300 px-5 pt-4 pb-1">
 			<div class="text-lg font-medium self-center">{$i18n.t('Files')}</div>
@@ -333,7 +333,7 @@
 
 									<div class="basis-2/5 flex items-center justify-end">
 										<div class="hidden sm:flex text-gray-500 dark:text-gray-400 text-xs">
-											{dayjs(file.created_at * 1000).format('MMM D, YYYY')}
+											{dayjs(file.created_at * 1000).format('D MMM, YYYY')}
 										</div>
 
 										<div class="flex justify-end pl-2.5 text-gray-600 dark:text-gray-300">
@@ -367,20 +367,13 @@
 										}
 									}}
 								>
-									<div
-										class="w-full flex justify-center py-1 text-xs animate-pulse items-center gap-2"
-									>
-										<Spinner className="size-4" />
-										<div>{$i18n.t('Loading...')}</div>
-									</div>
+									<div class="py-1"></div>
 								</Loader>
 							{/if}
 						</div>
 					</div>
 				{:else}
-					<div class="w-full h-full flex justify-center items-center min-h-20">
-						<Spinner className="size-5" />
-					</div>
+					<div class="w-full h-full min-h-20"></div>
 				{/if}
 			</div>
 		</div>

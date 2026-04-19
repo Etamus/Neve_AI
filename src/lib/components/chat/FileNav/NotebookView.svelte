@@ -470,7 +470,7 @@
 	}
 	.nb-cell-label {
 		color: #9ca3af;
-		font-family: 'Geist Mono', monospace;
+		font-family: 'Segoe UI', monospace;
 		font-size: 0.6rem;
 		user-select: none;
 		text-align: center;
@@ -531,7 +531,7 @@
 		padding: 0.5rem 0.75rem;
 		font-size: 0.75rem;
 		line-height: 1.5;
-		font-family: 'Geist Mono', monospace;
+		font-family: 'Segoe UI', monospace;
 		background: #f8f8f8;
 		color: #1f2937;
 	}
@@ -545,7 +545,7 @@
 		padding: 0.5rem 0.75rem;
 		font-size: 0.75rem;
 		line-height: 1.5;
-		font-family: 'Geist Mono', monospace;
+		font-family: 'Segoe UI', monospace;
 		background: #fffef5;
 		color: #1f2937;
 		border: none;
@@ -560,7 +560,7 @@
 		color: #e6edf3;
 	}
 	.nb-edit-textarea {
-		font-family: 'Geist', sans-serif;
+		font-family: 'Segoe UI', sans-serif;
 		font-size: 0.8rem;
 		background: transparent;
 		padding: 0.5rem 0.75rem;
@@ -578,7 +578,7 @@
 		padding: 0.5rem 0.75rem;
 		font-size: 0.7rem;
 		line-height: 1.5;
-		font-family: 'Geist Mono', monospace;
+		font-family: 'Segoe UI', monospace;
 		color: #374151;
 		white-space: pre-wrap;
 		word-break: break-all;
@@ -615,7 +615,7 @@
 		padding: 0.5rem 0.75rem;
 		font-size: 0.7rem;
 		line-height: 1.5;
-		font-family: 'Geist Mono', monospace;
+		font-family: 'Segoe UI', monospace;
 		background: rgba(239, 68, 68, 0.05);
 		color: #dc2626;
 		white-space: pre-wrap;
@@ -630,7 +630,7 @@
 		padding: 0.5rem 0.75rem;
 		font-size: 0.75rem;
 		line-height: 1.5;
-		font-family: 'Geist Mono', monospace;
+		font-family: 'Segoe UI', monospace;
 		color: #6b7280;
 		white-space: pre-wrap;
 	}

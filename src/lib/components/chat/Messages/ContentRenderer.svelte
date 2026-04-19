@@ -32,7 +32,7 @@
 	export let preview = false;
 	export let floatingButtons = true;
 
-	export let editCodeBlock = true;
+	export let editCodeBlock = false;
 	export let topPadding = false;
 
 	export let onSave = (e) => {};

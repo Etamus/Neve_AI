@@ -35,7 +35,7 @@
 	export let profile = false;
 	export let help = false;
 
-	export let className = 'max-w-[10rem]';
+	export let className = 'max-w-[11rem]';
 	export let align = 'end';
 
 	export let showActiveUsers = true;
@@ -84,7 +84,7 @@
 
 	<slot name="content">
 		<DropdownMenu.Content
-				class="w-full {className}  rounded-2xl px-1 py-0.5  border border-gray-100  dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg text-sm"
+				class="w-full {className} rounded-md px-1 py-0.5 border border-gray-100 dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-md text-sm"
 			sideOffset={4}
 			side="top"
 			align="start"
@@ -204,7 +204,7 @@
 
 			<div class="flex flex-col items-stretch px-1 py-0.5 gap-0.5">
 				<DropdownMenu.Item
-					class="flex items-center rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer select-none"
+					class="flex items-center rounded-sm py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer select-none"
 					on:click={async () => {
 						show = false;
 
@@ -218,22 +218,21 @@
 				>
 					<div class="flex items-center gap-3">
 						<Settings className="w-5 h-5" strokeWidth="1.5" />
-						<span class="text-xs">{$i18n.t('Settings')}</span>
+						<span class="text-sm">{$i18n.t('Settings')}</span>
 					</div>
 				</DropdownMenu.Item>
 
 				<DropdownMenu.Item
-					class="flex items-center rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer select-none"
+					class="flex items-center rounded-sm py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer select-none"
 					on:click={async () => {
 						show = false;
-						await shutdownApp(localStorage.token);
+						try { await shutdownApp(localStorage.token); } catch {}
+						window.close();
 					}}
 				>
 					<div class="flex items-center gap-3">
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1 0 12.728 0M12 3v9" />
-						</svg>
-						<span class="text-xs">{$i18n.t('Sair')}</span>
+					<SignOut className="w-5 h-5" />
+						<span class="text-sm">{$i18n.t('Sair')}</span>
 					</div>
 				</DropdownMenu.Item>
 			</div>

@@ -22,7 +22,6 @@
 	import { getModels } from '$lib/apis';
 	import Search from '$lib/components/icons/Search.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Switch from '$lib/components/common/Switch.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
 
@@ -44,7 +43,7 @@
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import { goto } from '$app/navigation';
 	import { DropdownMenu } from 'bits-ui';
-	import { flyAndScale } from '$lib/utils/transitions';
+	import { fade } from 'svelte/transition';
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import AdminViewSelector from './Models/AdminViewSelector.svelte';
 	import Pagination from '$lib/components/common/Pagination.svelte';
@@ -493,11 +492,11 @@
 
 					<div slot="content">
 						<DropdownMenu.Content
-						class="w-full max-w-[170px] rounded-xl p-1 border border-gray-100 dark:border-gray-800 z-[10000] bg-white dark:bg-gray-850 dark:text-white shadow-sm"
+						class="w-full max-w-[170px] rounded-md p-1 border border-gray-100 dark:border-gray-800 z-[10000] bg-white dark:bg-gray-850 dark:text-white shadow-md"
 							sideOffset={-2}
 							side="bottom"
 							align="end"
-							transition={flyAndScale}
+							transition={(e) => fade(e, { duration: 100 })}
 						>
 							<DropdownMenu.Item
 								class="select-none flex gap-2 items-center px-3 py-1.5 text-sm font-medium cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
@@ -525,7 +524,7 @@
 
 			<div class="px-3 my-2" id="model-list">
 				{#if filteredModels.length > 0}
-					{#each filteredModels.slice((currentPage - 1) * perPage, currentPage * perPage) as model, modelIdx (`${model.id}-${modelIdx}`)}
+					{#each filteredModels.slice((currentPage - 1) * perPage, currentPage * perPage) as model, modelIdx (`${model.id}-${model.is_active ?? true}`)}
 						<div
 							class=" flex space-x-4 cursor-pointer w-full px-3 py-2 dark:hover:bg-white/5 hover:bg-black/5 rounded-xl transition {model
 								?.meta?.hidden
@@ -537,7 +536,7 @@
 								class=" flex flex-1 text-left space-x-3.5 cursor-pointer w-full"
 								type="button"
 								on:click={() => {
-									selectedModelId = model.id;
+									if (model?.is_active ?? true) selectedModelId = model.id;
 								}}
 							>
 								<div class=" self-center w-9">
@@ -603,29 +602,30 @@
 										</button>
 									</Tooltip>
 								{:else}
-									<button
-										class="self-center w-fit text-sm px-2 py-2 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
-										type="button"
-										on:click={() => {
-											selectedModelId = model.id;
-										}}
+								{#if (model?.is_active ?? true)}
+								<button
+									class="self-center w-fit text-sm px-2 py-2 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
+									type="button"
+									on:click={() => {
+										selectedModelId = model.id;
+									}}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="w-4 h-4"
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke-width="1.5"
-											stroke="currentColor"
-											class="w-4 h-4"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-											/>
-										</svg>
-									</button>
-
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+										/>
+									</svg>
+								</button>
+								{/if}
 									<ModelMenu
 										user={$user}
 										{model}
@@ -645,18 +645,28 @@
 										</button>
 									</ModelMenu>
 
-									<div class="ml-1">
+									<div class="-ml-0.5">
 										<Tooltip
 											content={(model?.is_active ?? true)
 												? $i18n.t('Enabled')
 												: $i18n.t('Disabled')}
 										>
-											<Switch
-												bind:state={model.is_active}
-												on:change={async () => {
-													toggleModelHandler(model);
-												}}
-											/>
+										<button
+											type="button"
+											class="flex h-[1.125rem] min-h-[1.125rem] w-8 shrink-0 cursor-pointer items-center rounded-full px-[2px] mx-[1px] transition-colors outline outline-1 outline-gray-100 dark:outline-gray-800 {(model.is_active ?? true) ? 'bg-emerald-500 dark:bg-emerald-700' : 'bg-gray-200 dark:bg-transparent'}"
+											on:click|stopPropagation={() => {
+												const newActive = !(model.is_active ?? true);
+											const updater = (m) =>
+												m.id === model.id ? { ...m, is_active: newActive } : m;
+											models = models.map(updater);
+											filteredModels = filteredModels.map(updater);
+												toggleModelHandler({ ...model, is_active: newActive });
+											}}
+										>
+											<span
+												class="pointer-events-none block size-3 shrink-0 rounded-full bg-white shadow-sm transition-transform {(model.is_active ?? true) ? 'translate-x-4' : 'translate-x-0'}"
+											></span>
+										</button>
 										</Tooltip>
 									</div>
 								{/if}

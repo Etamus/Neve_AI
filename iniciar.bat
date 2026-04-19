@@ -10,8 +10,8 @@ echo  ==========================================
 echo.
 
 SET "ROOT=%~dp0"
-SET "VENV_PY=%ROOT%backend\open_webui\venv\Scripts\python.exe"
-SET "VENV_PYW=%ROOT%backend\open_webui\venv\Scripts\pythonw.exe"
+SET "VENV_PY=%ROOT%backend\neveai\venv\Scripts\python.exe"
+SET "VENV_PYW=%ROOT%backend\neveai\venv\Scripts\pythonw.exe"
 SET "BACKEND=%ROOT%backend"
 
 :: Verifica se o venv existe
@@ -28,7 +28,7 @@ powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort 8080 -EA Silent
 
 :: Inicia o backend (serve o frontend de producao na mesma porta)
 echo  Iniciando backend (porta 8080)...
-start "Neve AI - Backend" powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:PYTHONIOENCODING='utf-8'; $env:PYTHONPATH='%BACKEND%'; Set-Location '%BACKEND%'; & '%VENV_PY%' -m uvicorn open_webui.main:app --host 0.0.0.0 --port 8080"
+start "Neve AI - Backend" powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:PYTHONIOENCODING='utf-8'; $env:PYTHONPATH='%BACKEND%'; Set-Location '%BACKEND%'; & '%VENV_PY%' -m uvicorn neveai.main:app --host 0.0.0.0 --port 8080"
 
 :: Aguarda o backend responder (testa a cada 1s, ate 120s)
 echo  Aguardando backend carregar...

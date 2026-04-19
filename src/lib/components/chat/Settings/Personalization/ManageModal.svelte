@@ -50,7 +50,7 @@
 	}
 </script>
 
-<Modal size="lg" bind:show>
+<Modal size="md" bind:show>
 	<div>
 		<div class=" flex justify-between dark:text-gray-300 px-5 pt-4 pb-1">
 			<div class=" text-lg font-medium self-center">{$i18n.t('Memory')}</div>
@@ -82,7 +82,7 @@
 						<div class="relative overflow-x-auto">
 							<table class="w-full text-sm text-left text-gray-600 dark:text-gray-400 table-auto">
 								<thead
-									class="text-xs text-gray-700 uppercase bg-transparent dark:text-gray-200 border-b-2 border-gray-50 dark:border-gray-850/30"
+									class="text-xs text-gray-700 bg-transparent dark:text-gray-200 border-b-2 border-gray-50 dark:border-gray-850/30"
 								>
 									<tr>
 										<th scope="col" class="px-3 py-2"> {$i18n.t('Name')} </th>
@@ -119,14 +119,18 @@
 																xmlns="http://www.w3.org/2000/svg"
 																fill="none"
 																viewBox="0 0 24 24"
-																stroke-width="1.5"
+																stroke-width="2"
 																stroke="currentColor"
-																class="w-4 h-4 s-FoVA_WMOgxUD"
+																aria-hidden="true"
+																class="w-4 h-4"
 																><path
 																	stroke-linecap="round"
 																	stroke-linejoin="round"
-																	d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-																	class="s-FoVA_WMOgxUD"
+																	d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"
+																/><path
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																	d="m15 5 4 4"
 																/></svg
 															>
 														</button>
@@ -184,13 +188,13 @@
 			</div>
 			<div class="flex text-xs font-medium gap-1.5">
 				<button
-					class=" px-2.5 py-1 font-medium hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-gray-100 dark:outline-gray-800 rounded-3xl"
+					class="px-4 py-1.5 text-xs font-medium bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition rounded-lg"
 					on:click={() => {
 						showAddMemoryModal = true;
 					}}>{$i18n.t('Add Memory')}</button
 				>
 				<button
-					class=" px-2.5 py-1 font-medium text-red-500 hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-red-100 dark:outline-red-800 rounded-3xl"
+					class="px-4 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition rounded-lg"
 					on:click={() => {
 						if (memories.length > 0) {
 							showClearConfirmDialog = true;

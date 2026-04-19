@@ -16,12 +16,12 @@
 		y="3"
 		width="18"
 		height="18"
-		rx="5"
-		ry="5"
+		rx="2"
+		ry="2"
 		stroke="currentColor"
 		stroke-linecap="round"
 		stroke-linejoin="round"
 		fill="none"
-	></rect><path d="M9.5 21V3" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+	></rect><path d="M9 3v18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
 	></path></svg
 >

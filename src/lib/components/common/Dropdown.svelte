@@ -11,6 +11,8 @@
 	export let align = 'start';
 	export let closeOnOutsideClick = true;
 
+	export let triggerClassName = '';
+
 	const dispatch = createEventDispatcher();
 </script>
 
@@ -23,7 +25,7 @@
 	}}
 	typeahead={false}
 >
-	<DropdownMenu.Trigger>
+	<DropdownMenu.Trigger class={triggerClassName}>
 		<slot />
 	</DropdownMenu.Trigger>
 

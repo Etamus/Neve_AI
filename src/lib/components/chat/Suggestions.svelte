@@ -64,7 +64,7 @@
 	}
 </script>
 
-<div class="mb-1 flex gap-1 text-xs font-medium items-center text-gray-600 dark:text-gray-400" style="font-family: 'Geist', sans-serif;">
+<div class="mb-1 flex gap-1 text-xs font-medium items-center text-gray-600 dark:text-gray-400" style="font-family: 'Segoe UI', sans-serif;">
 	{#if filteredPrompts.length > 0}
 		<Bolt />
 		{$i18n.t('Suggested')}
@@ -75,7 +75,7 @@
 	{/if}
 </div>
 
-<div class="h-40 w-full" style="font-family: 'Geist', sans-serif;">
+<div class="h-40 w-full" style="font-family: 'Segoe UI', sans-serif;">
 	{#if filteredPrompts.length > 0}
 		<div role="list" class="max-h-40 overflow-auto scrollbar-none items-start {className}">
 			{#each filteredPrompts as prompt, idx (prompt.id || `${prompt.content}-${idx}`)}

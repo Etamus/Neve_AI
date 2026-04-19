@@ -63,8 +63,6 @@
 						placeholder={searchPlaceholder}
 					/>
 				</div>
-
-				<hr class="border-gray-100/30 dark:border-gray-850/30" />
 			{/if}
 
 			<div class="px-3 my-2 max-h-80 overflow-y-auto">

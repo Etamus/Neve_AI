@@ -237,6 +237,11 @@
 								class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
 								on:click={() => {
 									webSearchEnabled = !webSearchEnabled;
+									if (webSearchEnabled) {
+										codeInterpreterEnabled = false;
+										imageGenerationEnabled = false;
+										stableDiffusionEnabled = false;
+									}
 								}}
 							>
 								<div class="flex-1 truncate">
@@ -268,6 +273,12 @@
 								class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
 								on:click={() => {
 									imageGenerationEnabled = !imageGenerationEnabled;
+									if (imageGenerationEnabled) {
+										webSearchEnabled = false;
+										codeInterpreterEnabled = false;
+										codeExecutionEnabled = false;
+										stableDiffusionEnabled = false;
+									}
 								}}
 							>
 								<div class="flex-1 truncate">
@@ -303,6 +314,11 @@
 									: $i18n.t('Enable Code Interpreter')}
 								on:click={() => {
 									codeInterpreterEnabled = !codeInterpreterEnabled;
+									if (codeInterpreterEnabled) {
+										webSearchEnabled = false;
+										imageGenerationEnabled = false;
+										stableDiffusionEnabled = false;
+									}
 								}}
 							>
 								<div class="flex-1 truncate">
@@ -335,6 +351,10 @@
 								aria-pressed={codeExecutionEnabled}
 								on:click={() => {
 									codeExecutionEnabled = !codeExecutionEnabled;
+									if (codeExecutionEnabled) {
+										imageGenerationEnabled = false;
+										stableDiffusionEnabled = false;
+									}
 								}}
 							>
 								<div class="flex-1 truncate">
@@ -368,6 +388,12 @@
 								class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
 								on:click={() => {
 									stableDiffusionEnabled = !stableDiffusionEnabled;
+									if (stableDiffusionEnabled) {
+										webSearchEnabled = false;
+										codeInterpreterEnabled = false;
+										imageGenerationEnabled = false;
+										codeExecutionEnabled = false;
+									}
 								}}
 							>
 								<div class="flex-1 truncate">

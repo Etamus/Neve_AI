@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import dayjs from 'dayjs';
 
@@ -155,7 +155,7 @@
 
 	export let isLastMessage = true;
 	export let readOnly = false;
-	export let editCodeBlock = true;
+	export let editCodeBlock = false;
 	export let topPadding = false;
 
 	let citationsElement: HTMLDivElement;
@@ -341,28 +341,18 @@
 	let preprocessedDetailsCache = [];
 
 	function preprocessForEditing(content: string): string {
-		// Replace <details>...</details> with unique ID placeholder
 		const detailsBlocks = [];
-		let i = 0;
-
-		content = content.replace(/<details[\s\S]*?<\/details>/gi, (match) => {
+		const cleaned = content.replace(/<details[\s\S]*?<\/details>/gi, (match) => {
 			detailsBlocks.push(match);
-			return `<details id="__DETAIL_${i++}__"/>`;
+			return '';
 		});
-
-		// Store original blocks in the editedContent or globally (see merging later)
 		preprocessedDetailsCache = detailsBlocks;
-
-		return content;
+		return cleaned.replace(/^\s+/, '');
 	}
 
 	function postprocessAfterEditing(content: string): string {
-		const restoredContent = content.replace(
-			/<details id="__DETAIL_(\d+)__"\/>/g,
-			(_, index) => preprocessedDetailsCache[parseInt(index)] || ''
-		);
-
-		return restoredContent;
+		if (preprocessedDetailsCache.length === 0) return content;
+		return preprocessedDetailsCache.join('\n') + '\n' + content;
 	}
 
 	const editMessageHandler = async () => {
@@ -620,46 +610,17 @@
 		id="message-{message.id}"
 		dir={$settings.chatDirection}
 		style="scroll-margin-top: 3rem;"
+		in:fade={{ duration: 150, delay: 50 }}
 	>
-		<div class={`shrink-0 ltr:mr-3 rtl:ml-3 hidden @lg:flex mt-1 `}>
-			<ProfileImage
-				src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}`}
-				className={'size-8 assistant-message-profile-image'}
-			/>
-		</div>
-
-		<div class="flex-auto w-0 pl-1 relative">
-			<Name>
-				<Tooltip content={model?.name ?? message.model.replace('local/', '')} placement="top-start">
-					<span id="response-message-model-name" class="line-clamp-1 text-black dark:text-white">
-						{model?.name ?? message.model.replace('local/', '')}
-					</span>
-				</Tooltip>
-
-				{#if message.timestamp}
-					<div
-						class="self-center text-xs font-medium first-letter:capitalize ml-0.5 translate-y-[1px] {($settings?.highContrastMode ??
-						false)
-							? 'dark:text-gray-100 text-gray-900'
-							: 'invisible group-hover:visible transition text-gray-400'}"
-					>
-						<Tooltip content={dayjs(message.timestamp * 1000).format('LLLL')}>
-							<span class="line-clamp-1"
-								>{$i18n.t(formatDate(message.timestamp * 1000), {
-									LOCALIZED_TIME: dayjs(message.timestamp * 1000).format('LT'),
-									LOCALIZED_DATE: dayjs(message.timestamp * 1000).format('L')
-								})}</span
-							>
-						</Tooltip>
-					</div>
-				{/if}
-			</Name>
+		<div class="flex-auto w-0 pl-1.5 relative">
 
 			<div>
 				<div class="chat-{message.role} w-full min-w-full markdown-prose">
 					<div>
 						{#if model?.info?.meta?.capabilities?.status_updates ?? true}
-							<StatusHistory statusHistory={message?.statusHistory} />
+							<div class="mt-1 pl-3">
+								<StatusHistory statusHistory={message?.statusHistory} />
+							</div>
 						{/if}
 
 						{#if message?.files && message.files?.filter((f) => f.type === 'image').length > 0}
@@ -735,23 +696,11 @@
 									}}
 								/>
 
-								<div class=" mt-2 mb-1 flex justify-between text-sm font-medium">
-									<div>
-										<button
-											id="save-new-message-button"
-											class="px-3.5 py-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition rounded-3xl"
-											on:click={() => {
-												saveAsCopyHandler();
-											}}
-										>
-											{$i18n.t('Save As Copy')}
-										</button>
-									</div>
-
-									<div class="flex space-x-1.5">
+								<div class=" mt-2 mb-1 flex justify-end text-sm font-medium">
+									<div class="flex space-x-1.5 items-center">
 										<button
 											id="close-edit-message-button"
-											class="px-3.5 py-1.5 bg-white dark:bg-gray-900 hover:bg-gray-100 text-gray-800 dark:text-gray-100 transition rounded-3xl"
+											class="px-4 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition rounded-lg inline-flex items-center"
 											on:click={() => {
 												cancelEditMessage();
 											}}
@@ -761,7 +710,7 @@
 
 										<button
 											id="confirm-edit-message-button"
-											class="px-3.5 py-1.5 bg-gray-900 dark:bg-white hover:bg-gray-850 text-gray-100 dark:text-gray-800 transition rounded-3xl"
+											class="px-4 py-1.5 text-xs font-medium bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition rounded-lg inline-flex items-center"
 											on:click={() => {
 												editMessageConfirmHandler();
 											}}
@@ -848,7 +797,7 @@
 				{#if !edit}
 					<div
 						bind:this={buttonsContainerElement}
-						class="flex justify-start overflow-x-auto buttons text-gray-600 dark:text-gray-500 mt-0.5"
+						class="flex items-center gap-1 buttons text-gray-600 dark:text-gray-500 mt-1"
 					>
 						{#if message.done || siblings.length > 1}
 							{#if siblings.length > 1}
@@ -880,32 +829,11 @@
 									</button>
 								</div>
 							{/if}
-							{#if !readOnly && ($settings?.editResponseWithCtrl ? ctrlPressed : true) && (($user?.role === 'admin' || ($user?.permissions?.chat?.edit ?? true)) && (($settings?.responseEditorMode ?? false) === false))}
-								<Tooltip content={$i18n.t('Edit')} placement="bottom">
-									<button
-										aria-label={$i18n.t('Edit')}
-										id="edit-response-message-button"
-										class="{isLastMessage || ($settings?.highContrastMode ?? false)
-											? 'visible'
-											: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
-										on:click={() => {
-											editMessageHandler();
-										}}
-									>
-										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true" stroke="currentColor" class="w-4 h-4">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-											<path stroke-linecap="round" stroke-linejoin="round" d="m15 5 4 4" />
-										</svg>
-									</button>
-								</Tooltip>
-							{/if}
-						{#if message.done}
+						{#if message.done && !readOnly}
 							<Tooltip content={$i18n.t("Copy")} placement="bottom">
 								<button
 									aria-label={$i18n.t("Copy")}
-									class="{isLastMessage || ($settings?.highContrastMode ?? false)
-										? 'visible'
-										: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition copy-response-button"
+									class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition copy-response-button"
 									on:click={() => {
 										copyToClipboard(message.content);
 									}}
@@ -927,57 +855,99 @@
 									</svg>
 								</button>
 							</Tooltip>
-							{#if message.usage}
-								<Tooltip
-									content={message.usage
-										? `<pre>${sanitizeResponseContent(
-																	JSON.stringify(message.usage, null, 2)
-																	.replace(/"([^(")"]+)":/g, '$1:')
-																	.slice(1, -1)
-																	.split('\n')
-																	.map((line) => line.slice(2))
-																	.map((line) => (line.endsWith(',') ? line.slice(0, -1) : line))
-																	.join('\n')
-										)}</pre>`
-										: ""}
-									placement="bottom"
-								>
+						{/if}
+							{#if !readOnly && ($settings?.editResponseWithCtrl ? ctrlPressed : true) && (($user?.role === 'admin' || ($user?.permissions?.chat?.edit ?? true)) && (($settings?.responseEditorMode ?? false) === false))}
+								<Tooltip content={$i18n.t('Edit')} placement="bottom">
 									<button
-										aria-hidden="true"
-										class=" {isLastMessage || ($settings?.highContrastMode ?? false)
-											? 'visible'
-											: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition whitespace-pre-wrap"
+										aria-label={$i18n.t('Edit')}
+										id="edit-response-message-button"
+										class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition"
 										on:click={() => {
-											console.log(message);
+											editMessageHandler();
 										}}
-										id="info-{message.id}"
 									>
-										<svg
-											aria-hidden="true"
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke-width="2.3"
-											stroke="currentColor"
-											class="w-4 h-4"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
-											/>
+										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true" stroke="currentColor" class="w-4 h-4">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+											<path stroke-linecap="round" stroke-linejoin="round" d="m15 5 4 4" />
 										</svg>
 									</button>
 								</Tooltip>
+							{/if}
+						{#if message.done}
+							{#if !readOnly}
+								{#if $user?.role === 'admin' || ($user?.permissions?.chat?.regenerate_response ?? true)}
+									{#if $settings?.regenerateMenu ?? true}
+										<button type="button" class="hidden regenerate-response-button" on:click={() => {
+											showRateComment = false;
+											regenerateResponse(message);
+											(model?.actions ?? []).forEach((action) => {
+												dispatch("action", { id: action.id, event: { id: "regenerate-response", data: { messageId: message.id } } });
+											});
+										}} />
+										<RegenerateMenu
+											onRegenerate={(prompt = null) => {
+												showRateComment = false;
+												regenerateResponse(message, prompt);
+												(model?.actions ?? []).forEach((action) => {
+													dispatch("action", { id: action.id, event: { id: "regenerate-response", data: { messageId: message.id } } });
+												});
+											}}
+										>
+											<Tooltip content={$i18n.t("Regenerate")} placement="bottom">
+												<div
+													aria-label={$i18n.t("Regenerate")}
+													class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition"
+												>
+													<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.3" aria-hidden="true" stroke="currentColor" class="w-4 h-4">
+														<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+													</svg>
+												</div>
+											</Tooltip>
+										</RegenerateMenu>
+									{:else}
+										<Tooltip content={$i18n.t("Regenerate")} placement="bottom">
+											<button
+												type="button"
+												aria-label={$i18n.t("Regenerate")}
+												class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition regenerate-response-button"
+												on:click={() => {
+													showRateComment = false;
+													regenerateResponse(message);
+													(model?.actions ?? []).forEach((action) => {
+														dispatch("action", { id: action.id, event: { id: "regenerate-response", data: { messageId: message.id } } });
+													});
+												}}
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.3" aria-hidden="true" stroke="currentColor" class="w-4 h-4">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+												</svg>
+											</button>
+										</Tooltip>
+									{/if}
+								{/if}
+								{#if isLastMessage && ($user?.role === 'admin' || ($user?.permissions?.chat?.continue_response ?? true))}
+									<Tooltip content="Continuar" placement="bottom">
+										<button
+											aria-label="Continuar"
+											type="button"
+											id="continue-response-button"
+											class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition"
+											on:click={() => { continueResponse(); }}
+										>
+											<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.3" stroke="currentColor" class="w-4 h-4">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+												<path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" />
+											</svg>
+										</button>
+									</Tooltip>
+								{/if}
 							{/if}
 							{#if !readOnly}
 								{#if !$temporaryChatEnabled && ($config?.features.enable_message_rating ?? true) && ($user?.role === 'admin' || ($user?.permissions?.chat?.rate_response ?? true))}
 									<Tooltip content={$i18n.t("Good Response")} placement="bottom">
 										<button
 											aria-label={$i18n.t("Good Response")}
-											class="{isLastMessage || ($settings?.highContrastMode ?? false)
-												? 'visible'
-												: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg {(
+											class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full {(
 												message?.annotation?.rating ?? ''
 											).toString() === '1'
 												? 'bg-gray-100 dark:bg-gray-800'
@@ -1000,9 +970,7 @@
 									<Tooltip content={$i18n.t("Bad Response")} placement="bottom">
 										<button
 											aria-label={$i18n.t("Bad Response")}
-											class="{isLastMessage || ($settings?.highContrastMode ?? false)
-												? 'visible'
-												: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg {(
+											class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full {(
 												message?.annotation?.rating ?? ''
 											).toString() === '-1'
 												? 'bg-gray-100 dark:bg-gray-800'
@@ -1023,74 +991,6 @@
 										</button>
 									</Tooltip>
 								{/if}
-								{#if isLastMessage && ($user?.role === 'admin' || ($user?.permissions?.chat?.continue_response ?? true))}
-									<Tooltip content={$i18n.t("Continue Response")} placement="bottom">
-										<button
-											aria-label={$i18n.t("Continue Response")}
-											type="button"
-											id="continue-response-button"
-											class="{isLastMessage || ($settings?.highContrastMode ?? false)
-												? 'visible'
-												: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
-											on:click={() => { continueResponse(); }}
-										>
-											<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.3" stroke="currentColor" class="w-4 h-4">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-												<path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" />
-											</svg>
-										</button>
-									</Tooltip>
-								{/if}
-								{#if $user?.role === 'admin' || ($user?.permissions?.chat?.regenerate_response ?? true)}
-									{#if $settings?.regenerateMenu ?? true}
-										<button type="button" class="hidden regenerate-response-button" on:click={() => {
-											showRateComment = false;
-											regenerateResponse(message);
-											(model?.actions ?? []).forEach((action) => {
-												dispatch("action", { id: action.id, event: { id: "regenerate-response", data: { messageId: message.id } } });
-											});
-										}} />
-										<RegenerateMenu
-											onRegenerate={(prompt = null) => {
-												showRateComment = false;
-												regenerateResponse(message, prompt);
-												(model?.actions ?? []).forEach((action) => {
-													dispatch("action", { id: action.id, event: { id: "regenerate-response", data: { messageId: message.id } } });
-												});
-											}}
-										>
-											<Tooltip content={$i18n.t("Regenerate")} placement="bottom">
-												<div
-													aria-label={$i18n.t("Regenerate")}
-													class="{isLastMessage ? 'visible' : 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.3" aria-hidden="true" stroke="currentColor" class="w-4 h-4">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-													</svg>
-												</div>
-											</Tooltip>
-										</RegenerateMenu>
-									{:else}
-										<Tooltip content={$i18n.t("Regenerate")} placement="bottom">
-											<button
-												type="button"
-												aria-label={$i18n.t("Regenerate")}
-												class="{isLastMessage ? 'visible' : 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition regenerate-response-button"
-												on:click={() => {
-													showRateComment = false;
-													regenerateResponse(message);
-													(model?.actions ?? []).forEach((action) => {
-														dispatch("action", { id: action.id, event: { id: "regenerate-response", data: { messageId: message.id } } });
-													});
-												}}
-											>
-												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.3" aria-hidden="true" stroke="currentColor" class="w-4 h-4">
-													<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-												</svg>
-											</button>
-										</Tooltip>
-									{/if}
-								{/if}
 								{#if $user?.role === 'admin' || ($user?.permissions?.chat?.delete_message ?? true)}
 									{#if siblings.length > 1}
 										<Tooltip content={$i18n.t("Delete")} placement="bottom">
@@ -1098,9 +998,7 @@
 												type="button"
 												aria-label={$i18n.t("Delete")}
 												id="delete-response-button"
-												class="{isLastMessage || ($settings?.highContrastMode ?? false)
-													? 'visible'
-													: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
+												class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition"
 												on:click={() => { showDeleteConfirm = true; }}
 											>
 												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true" class="w-4 h-4">
@@ -1115,9 +1013,7 @@
 										<button
 											type="button"
 											aria-label={action.name}
-											class="{isLastMessage || ($settings?.highContrastMode ?? false)
-												? 'visible'
-												: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
+											class="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition"
 											on:click={() => { actionMessage(action.id, message); }}
 										>
 											{#if action?.icon}

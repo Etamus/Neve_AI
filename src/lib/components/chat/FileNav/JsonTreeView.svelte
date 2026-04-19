@@ -72,7 +72,7 @@
 
 <style>
 	.json-root {
-		font-family: 'Geist Mono', monospace;
+		font-family: 'Segoe UI', monospace;
 		font-size: 0.75rem;
 		line-height: 1.6;
 		padding: 0.75rem 1rem;

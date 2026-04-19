@@ -416,9 +416,7 @@
 						</Loader>
 					{/if}
 				{:else}
-					<div class="w-full h-full flex justify-center items-center">
-						<Spinner className="size-5" />
-					</div>
+					<div class="w-full h-full"></div>
 				{/if}
 			</div>
 			<div

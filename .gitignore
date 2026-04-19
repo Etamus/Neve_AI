@@ -7,15 +7,15 @@
 # Dependências & ambientes virtuais (npm install / pip install via instalar.bat)
 # ──────────────────────────────────────────────────────────────────────────────
 node_modules/
-backend/open_webui/venv/
+backend/neveai/venv/
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Build & artefatos de compilação (npm run build / SvelteKit)
 # ──────────────────────────────────────────────────────────────────────────────
 build/
 .svelte-kit/
-backend/open_webui/frontend/
-backend/open_webui/static/
+backend/neveai/frontend/
+backend/neveai/static/
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Modelos e binários pesados (baixados pelo usuário / instalar.bat)

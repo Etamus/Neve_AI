@@ -24,6 +24,12 @@
 	let floatingActionButtons = null;
 	let showManageFloatingActionButtonsModal = false;
 	let largeTextAsFile = false;
+	let widescreenMode = false;
+	let expandDetails = false;
+	let chatBubble = true;
+	let backgroundImageUrl: string | null = null;
+	let filesInputElement: HTMLInputElement;
+	let inputFiles: FileList | null = null;
 
 	let system = '';
 
@@ -105,6 +111,10 @@
 		showFloatingActionButtons = $settings?.showFloatingActionButtons ?? true;
 		floatingActionButtons = $settings?.floatingActionButtons ?? null;
 		largeTextAsFile = $settings?.largeTextAsFile ?? false;
+		widescreenMode = $settings?.widescreenMode ?? false;
+		expandDetails = $settings?.expandDetails ?? false;
+		chatBubble = $settings?.chatBubble ?? true;
+		backgroundImageUrl = $settings?.backgroundImageUrl ?? null;
 
 		system = $settings.system ?? '';
 
@@ -180,51 +190,91 @@
 	}}
 />
 
-<div class="flex flex-col h-full justify-between text-sm" id="tab-general">
+<div class="flex flex-col h-full justify-between text-sm" id="tab-general" on:change={saveHandler}>
 	<div class="  overflow-y-scroll max-h-[28rem] md:max-h-full">
 		<div class="">
-			<div class=" mb-1 text-sm font-medium">{$i18n.t('WebUI Settings')}</div>
+
 
 			<div class="flex w-full justify-between">
-				<div class=" self-center text-xs font-medium">{$i18n.t('Theme')}</div>
+				<div class=" self-center text-sm font-medium">{$i18n.t('Theme')}</div>
 				<div class="flex items-center">
-					<div class="flex rounded-xl bg-gray-100 dark:bg-gray-850 p-0.5 gap-0.5">
+					<div class="relative flex rounded-xl bg-gray-100 dark:bg-gray-850 p-0.5">
+						<div
+							class="absolute top-0.5 bottom-0.5 bg-white dark:bg-gray-700 rounded-lg shadow-sm pointer-events-none transition-transform duration-200 ease-in-out"
+							style="left: 2px; width: calc((100% - 4px) / 3); transform: translateX(calc({selectedTheme === 'system' ? 0 : selectedTheme === 'light' ? 1 : 2} * 100%))"
+						></div>
 						<button
-							class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition {selectedTheme === 'system' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+							class="relative z-10 flex items-center justify-center p-2 transition-colors duration-150 {selectedTheme === 'system' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
 							on:click={() => { selectedTheme = 'system'; themeChangeHandler('system'); }}
+							title={$i18n.t('System')}
 						>
-							<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
 							</svg>
-							{$i18n.t('System')}
 						</button>
 						<button
-							class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition {selectedTheme === 'light' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+							class="relative z-10 flex items-center justify-center p-2 transition-colors duration-150 {selectedTheme === 'light' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
 							on:click={() => { selectedTheme = 'light'; themeChangeHandler('light'); }}
+							title={$i18n.t('Light')}
 						>
-							<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
 							</svg>
-							{$i18n.t('Light')}
 						</button>
 						<button
-							class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition {selectedTheme === 'dark' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+							class="relative z-10 flex items-center justify-center p-2 transition-colors duration-150 {selectedTheme === 'dark' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
 							on:click={() => { selectedTheme = 'dark'; themeChangeHandler('dark'); }}
+							title={$i18n.t('Dark')}
 						>
-							<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
 							</svg>
-							{$i18n.t('Dark')}
 						</button>
 					</div>
 				</div>
 			</div>
 
-			<hr class="border-gray-100 dark:border-gray-800 my-2" />
+			<div class="mt-2">
+				<div class=" py-0.5 flex w-full justify-between">
+					<div id="widescreen-mode-label" class=" self-center text-sm">
+						{$i18n.t('Widescreen Mode')}
+					</div>
+
+					<div class="flex items-center gap-2 p-1">
+						<Switch
+							ariaLabelledbyId="widescreen-mode-label"
+							tooltip={true}
+							bind:state={widescreenMode}
+							on:change={() => {
+								saveSettings({ widescreenMode });
+							}}
+						/>
+					</div>
+				</div>
+			</div>
 
 			<div>
 				<div class=" py-0.5 flex w-full justify-between">
-					<div id="enable-message-queue-label" class=" self-center text-xs">
+					<div id="always-expand-label" class=" self-center text-sm">
+						{$i18n.t('Always Expand Details')}
+					</div>
+
+					<div class="flex items-center gap-2 p-1">
+						<Switch
+							ariaLabelledbyId="always-expand-label"
+							tooltip={true}
+							bind:state={expandDetails}
+							on:change={() => {
+								saveSettings({ expandDetails });
+							}}
+						/>
+					</div>
+				</div>
+			</div>
+
+			<div>
+				<div class=" py-0.5 flex w-full justify-between">
+					<div id="enable-message-queue-label" class=" self-center text-sm">
 						{$i18n.t('Enable Message Queue')}
 					</div>
 
@@ -244,7 +294,7 @@
 			{#if $user.role === 'admin' || $user?.permissions?.chat?.temporary}
 				<div>
 					<div class=" py-0.5 flex w-full justify-between">
-						<div id="temp-chat-default-label" class=" self-center text-xs">
+						<div id="temp-chat-default-label" class=" self-center text-sm">
 							{$i18n.t('Temporary Chat by Default')}
 						</div>
 
@@ -262,54 +312,58 @@
 				</div>
 			{/if}
 
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<label id="floating-action-buttons-label" class=" self-center text-xs">
-						{$i18n.t('Floating Quick Actions')}
-					</label>
 
-					<div class="flex items-center gap-3 p-1">
-						{#if showFloatingActionButtons}
-							<button
-								class="text-xs text-gray-700 dark:text-gray-400 underline"
-								type="button"
-								aria-label={$i18n.t('Open Modal To Manage Floating Quick Actions')}
-								on:click={() => {
-									showManageFloatingActionButtonsModal = true;
-								}}
-							>
-								{$i18n.t('Manage')}
-							</button>
-						{/if}
 
-						<Switch
-							ariaLabelledbyId="floating-action-buttons-label"
-							tooltip={true}
-							bind:state={showFloatingActionButtons}
-							on:change={() => {
-								saveSettings({ showFloatingActionButtons });
-							}}
-						/>
-					</div>
-				</div>
-			</div>
+			<input
+				bind:this={filesInputElement}
+				bind:files={inputFiles}
+				type="file"
+				hidden
+				accept="image/*"
+				on:change={() => {
+					let reader = new FileReader();
+					reader.onload = (event) => {
+						let originalImageUrl = `${event.target.result}`;
+						backgroundImageUrl = originalImageUrl;
+						saveSettings({ backgroundImageUrl });
+					};
+
+					if (
+						inputFiles &&
+						inputFiles.length > 0 &&
+						['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
+					) {
+						reader.readAsDataURL(inputFiles[0]);
+					} else {
+						console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
+						inputFiles = null;
+					}
+				}}
+			/>
 
 			<div>
 				<div class=" py-0.5 flex w-full justify-between">
-					<div id="paste-large-label" class=" self-center text-xs">
-						{$i18n.t('Paste Large Text as File')}
+					<div id="chat-background-label" class=" self-center text-sm">
+						{$i18n.t('Chat Background Image')}
 					</div>
 
-					<div class="flex items-center gap-2 p-1">
-						<Switch
-							tooltip={true}
-							ariaLabelledbyId="paste-large-label"
-							bind:state={largeTextAsFile}
-							on:change={() => {
-								saveSettings({ largeTextAsFile });
-							}}
-						/>
-					</div>
+					<button
+						aria-labelledby="chat-background-label background-image-url-state"
+						class="p-1 px-3 text-sm flex rounded-sm transition"
+						on:click={() => {
+							if (backgroundImageUrl !== null) {
+								backgroundImageUrl = null;
+								saveSettings({ backgroundImageUrl });
+							} else {
+								filesInputElement.click();
+							}
+						}}
+						type="button"
+					>
+						<span class="ml-2 self-center" id="background-image-url-state"
+							>{backgroundImageUrl !== null ? $i18n.t('Reset') : $i18n.t('Upload')}</span
+						>
+					</button>
 				</div>
 			</div>
 
@@ -317,14 +371,4 @@
 
 	</div>
 
-	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full"
-			on:click={() => {
-				saveHandler();
-			}}
-		>
-			{$i18n.t('Save')}
-		</button>
-	</div>
 </div>

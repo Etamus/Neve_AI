@@ -420,13 +420,13 @@
 
 <div>
 	<div
-		class="relative {className} flex flex-col rounded-2xl border border-gray-100/30 dark:border-gray-850/30 my-0.5"
+		class="relative {className} flex flex-col rounded-lg border border-gray-200/50 dark:border-gray-700/40 my-0.5"
 		dir="ltr"
 	>
 		{#if ['mermaid', 'vega', 'vega-lite'].includes(lang)}
 			{#if renderHTML}
 				<SvgPanZoom
-					className=" rounded-2xl max-h-fit overflow-hidden"
+					className=" rounded-lg max-h-fit overflow-hidden"
 					svg={renderHTML}
 					content={_token.text}
 				/>
@@ -434,7 +434,7 @@
 				<div class="p-3">
 					{#if renderError}
 						<div
-							class="flex gap-2.5 border px-4 py-3 border-red-600/10 bg-red-600/10 rounded-2xl mb-2"
+							class="flex gap-2.5 border px-4 py-3 border-red-600/10 bg-red-600/10 rounded-lg mb-2"
 						>
 							{renderError}
 						</div>
@@ -444,7 +444,7 @@
 			{/if}
 		{:else}
 			<div
-				class="sticky {stickyButtonsClassName} left-0 right-0 py-1.5 px-3 gap-2 flex items-center justify-end w-full z-10 text-xs text-black dark:text-white bg-white dark:bg-black rounded-t-2xl"
+				class="sticky {stickyButtonsClassName} left-0 right-0 py-1.5 px-3 gap-2 flex items-center justify-end w-full z-10 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#2a2a2a] rounded-t-lg border-b border-gray-200/50 dark:border-gray-700/40"
 			>
 				<div class="flex-1 truncate">
 					<Tooltip content={lang} placement="top-start">
@@ -455,77 +455,81 @@
 				</div>
 
 				<div class="flex items-center gap-0.5 shrink-0">
-					<button
-						class="flex gap-1 items-center bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
-						on:click={collapseCodeBlock}
-					>
-						<div class=" -translate-y-[0.5px]">
-							<ChevronUpDown className="size-3" />
-						</div>
-
-						<div>
-							{collapsed ? $i18n.t('Expand') : $i18n.t('Collapse')}
-						</div>
-					</button>
-
 					{#if ($config?.features?.enable_code_execution ?? true) && (lang.toLowerCase() === 'python' || lang.toLowerCase() === 'py' || (lang === '' && checkPythonCode(code)))}
 						{#if executing}
 							<div
-								class="run-code-button bg-none border-none p-0.5 cursor-not-allowed bg-white dark:bg-black"
+								class="run-code-button bg-none border-none p-1 cursor-not-allowed"
 							>
-								{$i18n.t('Running')}
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4 animate-spin"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H4.598a.75.75 0 00-.75.75v3.634a.75.75 0 001.5 0v-2.033l.312.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.389zm-11.023-3.848a.75.75 0 00.726.947h.008a.75.75 0 00.722-.953 5.5 5.5 0 019.2-2.467l.312.311H12.82a.75.75 0 000 1.5h3.634a.75.75 0 00.75-.75V2.53a.75.75 0 00-1.5 0v2.034l-.312-.312A7 7 0 003.68 7.387a.75.75 0 00.609.189z" clip-rule="evenodd" /></svg>
 							</div>
 						{:else if run}
-							<button
-								class="flex gap-1 items-center run-code-button bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
-								on:click={async () => {
-									code = _code;
-									await tick();
-									executePython(code);
-								}}
-							>
-								<div>
-									{$i18n.t('Run')}
-								</div>
-							</button>
+							<Tooltip content={$i18n.t('Run')} placement="top">
+								<button
+									class="flex items-center justify-center run-code-button bg-none border-none transition rounded-md p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+									on:click={async () => {
+										code = _code;
+										await tick();
+										executePython(code);
+									}}
+								>
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" /></svg>
+								</button>
+							</Tooltip>
 						{/if}
 					{/if}
 
-					{#if save}
+					<Tooltip content={copied ? $i18n.t('Copied') : $i18n.t('Copy')} placement="top">
 						<button
-							class="save-code-button bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
-							on:click={saveCode}
+							class="copy-code-button flex items-center justify-center bg-none border-none transition rounded-md p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+							on:click={copyCode}
 						>
-							{saved ? $i18n.t('Saved') : $i18n.t('Save')}
+							{#if copied}
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+							{:else}
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" /></svg>
+							{/if}
 						</button>
-					{/if}
+					</Tooltip>
 
-					<button
-						class="copy-code-button bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
-						on:click={copyCode}>{copied ? $i18n.t('Copied') : $i18n.t('Copy')}</button
-					>
+					<Tooltip content={$i18n.t('Download')} placement="top">
+						<button
+							class="flex items-center justify-center bg-none border-none transition rounded-md p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+							on:click={() => {
+								const ext = lang || 'txt';
+								const blob = new Blob([code], { type: 'text/plain' });
+								const url = URL.createObjectURL(blob);
+								const a = document.createElement('a');
+								a.href = url;
+								a.download = `code.${ext}`;
+								a.click();
+								URL.revokeObjectURL(url);
+							}}
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></svg>
+						</button>
+					</Tooltip>
 
 					{#if preview && ['html', 'svg'].includes(lang)}
-						<button
-							class="flex gap-1 items-center run-code-button bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
-							on:click={previewCode}
-						>
-							<div>
-								{$i18n.t('Preview')}
-							</div>
-						</button>
+						<Tooltip content={$i18n.t('Preview')} placement="top">
+							<button
+								class="flex items-center justify-center run-code-button bg-none border-none transition rounded-md p-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+								on:click={previewCode}
+							>
+								<Cube className="size-4" />
+							</button>
+						</Tooltip>
 					{/if}
 				</div>
 			</div>
 
 			<div
-				class="language-{lang} rounded-t-2xl -mt-8 {editorClassName
+				class="language-{lang} {editorClassName
 					? editorClassName
 					: executing || stdout || stderr || result
 						? ''
-						: 'rounded-b-2xl'} overflow-hidden"
+						: 'rounded-b-lg'} overflow-hidden"
 			>
-				<div class=" pt-6.5 bg-white dark:bg-black"></div>
+				<div class="bg-gray-50 dark:bg-[#1a1a1a]"></div>
 
 				{#if !collapsed}
 					{#if edit}
@@ -543,19 +547,19 @@
 					{:else}
 						<pre
 							class=" hljs p-4 px-5 overflow-x-auto"
-							style="border-top-left-radius: 0px; border-top-right-radius: 0px; {(executing ||
-								stdout ||
-								stderr ||
-								result) &&
-								'border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;'}"><code
-								class="language-{lang} rounded-t-none whitespace-pre text-sm"
+					style="border-top-left-radius: 0px; border-top-right-radius: 0px; {(executing ||
+						stdout ||
+						stderr ||
+						result) &&
+						'border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;'}"><code
+						class="language-{lang} rounded-t-none whitespace-pre text-sm"
 								>{@html hljs.highlightAuto(code, hljs.getLanguage(lang)?.aliases).value ||
 									code}</code
 							></pre>
 					{/if}
 				{:else}
 					<div
-						class="bg-white dark:bg-black dark:text-white rounded-b-2xl! pt-0.5 pb-2 px-4 flex flex-col gap-2 text-xs"
+						class="bg-gray-50 dark:bg-[#1a1a1a] dark:text-white rounded-b-lg! pt-0.5 pb-2 px-4 flex flex-col gap-2 text-xs"
 					>
 						<span class="text-gray-500 italic">
 							{$i18n.t('{{COUNT}} hidden lines', {
@@ -569,12 +573,12 @@
 			{#if !collapsed}
 				<div
 					id="plt-canvas-{id}"
-					class="bg-gray-50 dark:bg-black dark:text-white max-w-full overflow-x-auto scrollbar-hidden"
+					class="bg-gray-50 dark:bg-[#1a1a1a] dark:text-white max-w-full overflow-x-auto scrollbar-hidden"
 				/>
 
 				{#if executing || stdout || stderr || result || files}
 					<div
-						class="bg-gray-50 dark:bg-black dark:text-white rounded-b-2xl! py-4 px-4 flex flex-col gap-2"
+						class="bg-gray-50 dark:bg-[#1a1a1a] dark:text-white rounded-b-lg! py-4 px-4 flex flex-col gap-2"
 					>
 						{#if executing}
 							<div class=" ">

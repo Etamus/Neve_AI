@@ -23,7 +23,6 @@
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
 	import MessageInput from './MessageInput.svelte';
 	import FolderPlaceholder from './Placeholder/FolderPlaceholder.svelte';
 	import FolderTitle from './Placeholder/FolderTitle.svelte';
@@ -74,7 +73,7 @@
 	$: models = selectedModels.map((id) => $_models.find((m) => m.id === id));
 </script>
 
-<div class="m-auto w-full max-w-6xl px-2 @2xl:px-20 -translate-y-6 py-24 text-center">
+<div class="m-auto w-full max-w-6xl px-2 @2xl:px-20 -translate-y-20 py-24 text-center">
 	{#if $temporaryChatEnabled}
 		<Tooltip
 			content={$i18n.t("This chat won't appear in history and your messages will not be saved.")}
@@ -82,7 +81,7 @@
 			placement="top"
 		>
 			<div class="flex items-center gap-2 text-gray-500 text-base my-2 w-fit">
-				<EyeSlash strokeWidth="2.5" className="size-4" />{$i18n.t('Temporary Chat')}
+				{$i18n.t('Temporary Chat')}
 			</div>
 		</Tooltip>
 	{/if}
@@ -95,8 +94,8 @@
 				<FolderTitle
 					folder={$selectedFolder}
 					onUpdate={async (folder) => {
-						await chats.set(await getChatList(localStorage.token, $currentChatPage));
 						currentChatPage.set(1);
+						await chats.set(await getChatList(localStorage.token, 1));
 					}}
 					onDelete={async () => {
 						await chats.set(await getChatList(localStorage.token, $currentChatPage));
@@ -108,7 +107,7 @@
 			{:else}
 				<div class="flex flex-row justify-center gap-3 @sm:gap-3.5 w-fit px-5 max-w-xl mb-8">
 					<div
-						class=" text-3xl @sm:text-3xl line-clamp-1 flex items-center"
+						class=" text-3xl @sm:text-3xl flex items-center"
 						in:fade={{ duration: 100 }}
 					>
 						O que você quer explorar hoje?
@@ -118,7 +117,7 @@
 
 			{/if}
 
-			<div class="text-base font-normal @md:max-w-3xl w-full py-3 {atSelectedModel ? 'mt-2' : ''}">
+			<div class="text-base font-normal @md:max-w-2xl w-full py-3 {atSelectedModel ? 'mt-2' : ''}">
 				<MessageInput
 					bind:this={messageInput}
 					{history}
@@ -153,7 +152,7 @@
 
 	{#if $selectedFolder}
 		<div
-			class="mx-auto px-4 md:max-w-3xl md:px-6 font-primary min-h-62"
+			class="mx-auto px-4 md:max-w-2xl md:px-6 font-primary min-h-62"
 			in:fade={{ duration: 200, delay: 200 }}
 		>
 			<FolderPlaceholder folder={$selectedFolder} />

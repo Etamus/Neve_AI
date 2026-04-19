@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import DOMPurify from 'dompurify';
 	import { toast } from 'svelte-sonner';
 
@@ -31,11 +31,14 @@
 		terminalServers,
 		user as _user,
 		showControls,
+		showArtifacts,
 		showSettings,
 		selectedTerminalId,
 		TTSWorker,
-		temporaryChatEnabled
+		temporaryChatEnabled,
+		chatId
 	} from '$lib/stores';
+	import { getChatById } from '$lib/apis/chats';
 
 	import {
 		convertHeicToJpeg,
@@ -83,6 +86,7 @@
 	import InputVariablesModal from './MessageInput/InputVariablesModal.svelte';
 	import Voice from '../icons/Voice.svelte';
 	import Cloud from '../icons/Cloud.svelte';
+	import Terminal from '../icons/Terminal.svelte';
 	import Code from '../icons/Code.svelte';
 	import TerminalMenu from './MessageInput/TerminalMenu.svelte';
 	import Knobs from '../icons/Knobs.svelte';
@@ -97,7 +101,6 @@
 	import PageEdit from '../icons/PageEdit.svelte';
 	import { goto } from '$app/navigation';
 	import InputModal from '../common/InputModal.svelte';
-	import Expand from '../icons/Expand.svelte';
 	import QueuedMessageItem from './MessageInput/QueuedMessageItem.svelte';
 
 	const i18n = getContext('i18n');
@@ -183,7 +186,28 @@
 		!codeExecutionEnabled &&
 		!stableDiffusionEnabled &&
 		(selectedToolIds ?? []).length === 0 &&
-		(selectedFilterIds ?? []).length === 0;
+		(selectedFilterIds ?? []).length === 0 &&
+		!isInputMultiline;
+
+	let showTokenPopup = false;
+
+	// Token usage from the last assistant message
+	$: lastUsage = (() => {
+		if (!history?.messages || !history?.currentId) return null;
+		let id = history.currentId;
+		while (id) {
+			const msg = history.messages[id];
+			if (msg?.role === 'assistant' && msg?.done && msg?.usage) return msg.usage;
+			id = msg?.parentId;
+		}
+		return null;
+	})();
+
+	function formatTokens(n: number): string {
+		if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+		if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+		return String(n);
+	}
 
 	const inputVariableHandler = async (text: string): Promise<string> => {
 		inputVariables = extractInputVariables(text);
@@ -192,8 +216,6 @@
 		if (Object.keys(inputVariables).length === 0) {
 			return text;
 		}
-
-		// Show modal and wait for the user's input.
 		showInputVariablesModal = true;
 		return await new Promise<string>((resolve) => {
 			inputVariablesModalCallback = (variableValues) => {
@@ -460,7 +482,10 @@
 	let showInputModal = false;
 
 	export let dragged = false;
+	let chatDragged = false;
 	let shiftKey = false;
+	let isInputMultiline = false;
+	let chatInputContainerEl: HTMLElement | null = null;
 
 	let user = null;
 	export let placeholder = '';
@@ -864,6 +889,62 @@
 		dragged = false;
 	};
 
+	// --- Chat drag-and-drop onto the input bar ---
+	const onInputDragOver = (e: DragEvent) => {
+		e.preventDefault();
+		if (e.dataTransfer?.types?.includes('text/plain')) {
+			chatDragged = true;
+		}
+	};
+
+	const onInputDragLeave = (e: DragEvent) => {
+		if ((e.currentTarget as HTMLElement)?.contains(e.relatedTarget as Node)) {
+			return;
+		}
+		chatDragged = false;
+	};
+
+	const onInputDrop = async (e: DragEvent) => {
+		const textData = e.dataTransfer?.getData('text/plain');
+		if (!textData) return;
+
+		let data;
+		try {
+			data = JSON.parse(textData);
+		} catch {
+			return; // Not JSON — let the default behavior handle it
+		}
+
+		if (data?.type !== 'chat' || !data?.id) return;
+
+		// It's a chat drop — prevent the text from being inserted
+		e.preventDefault();
+		e.stopPropagation();
+		chatDragged = false;
+
+		// Ignore current conversation
+		if (data.id === $chatId) return;
+
+		// Ignore duplicates
+		if (files.find((f) => f.id === data.id)) return;
+
+		const chat = await getChatById(localStorage.token, data.id);
+		if (!chat) return;
+
+		files = [
+			...files,
+			{
+				type: 'chat',
+				id: chat.id,
+				name: chat.title,
+				title: chat.title,
+				updated_at: chat.updated_at,
+				description: dayjs(chat.updated_at * 1000).fromNow(),
+				status: 'processed'
+			}
+		];
+	};
+
 	const onKeyDown = (e: KeyboardEvent) => {
 		if (e.key === 'Shift') {
 			shiftKey = true;
@@ -1028,6 +1109,7 @@
 
 		let isDestroyed = false;
 		let dropzoneElement: HTMLElement | null = null;
+		let inputDropzoneElement: HTMLElement | null = null;
 		const initialize = async () => {
 			await tick();
 			if (isDestroyed) return;
@@ -1037,6 +1119,13 @@
 				dropzoneElement.addEventListener('dragover', onDragOver);
 				dropzoneElement.addEventListener('drop', onDrop);
 				dropzoneElement.addEventListener('dragleave', onDragLeave);
+			}
+
+			inputDropzoneElement = document.getElementById('message-input-container');
+			if (inputDropzoneElement) {
+				inputDropzoneElement.addEventListener('dragover', onInputDragOver);
+				inputDropzoneElement.addEventListener('drop', onInputDrop, true);
+				inputDropzoneElement.addEventListener('dragleave', onInputDragLeave);
 			}
 
 			tools.set(await getTools(localStorage.token));
@@ -1056,6 +1145,12 @@
 				dropzoneElement.removeEventListener('dragover', onDragOver);
 				dropzoneElement.removeEventListener('drop', onDrop);
 				dropzoneElement.removeEventListener('dragleave', onDragLeave);
+			}
+
+			if (inputDropzoneElement) {
+				inputDropzoneElement.removeEventListener('dragover', onInputDragOver);
+				inputDropzoneElement.removeEventListener('drop', onInputDrop, true);
+				inputDropzoneElement.removeEventListener('dragleave', onInputDragLeave);
 			}
 		};
 	});
@@ -1110,7 +1205,7 @@
 			<div
 				class="flex flex-col px-3 {($settings?.widescreenMode ?? null)
 					? 'max-w-full'
-					: 'max-w-3xl'} w-full"
+					: 'max-w-2xl'} w-full"
 			>
 				<div class="relative">
 					{#if autoScroll === false && history?.currentId}
@@ -1147,7 +1242,7 @@
 			<div
 				class="{($settings?.widescreenMode ?? null)
 					? 'max-w-full'
-					: 'max-w-3xl'} px-2.5 mx-auto inset-x-0"
+					: 'max-w-2xl'} px-2.5 mx-auto inset-x-0"
 			>
 				<div class="">
 					<input
@@ -1201,9 +1296,11 @@
 
 						<div
 							id="message-input-container"
-							class="flex-1 flex {isCompact ? 'flex-row items-center rounded-full' : 'flex-col rounded-3xl'} relative w-full shadow-lg border {$temporaryChatEnabled
+							class="flex-1 flex {isCompact ? 'flex-row items-center rounded-full' : 'flex-col rounded-3xl'} relative z-40 w-full shadow-lg border {chatDragged
+								? 'border-blue-400 dark:border-blue-500 ring-2 ring-blue-300/50 dark:ring-blue-500/30'
+								: $temporaryChatEnabled
 								? 'border-dashed border-gray-100 dark:border-gray-800 hover:border-gray-200 focus-within:border-gray-200 hover:dark:border-gray-700 focus-within:dark:border-gray-700'
-								: ' border-gray-100/30 dark:border-gray-850/30 hover:border-gray-200 focus-within:border-gray-100 hover:dark:border-gray-800 focus-within:dark:border-gray-800'}  transition {isCompact ? 'px-1 py-2' : 'px-1'} bg-white/5 dark:bg-gray-500/5 backdrop-blur-sm dark:text-gray-100"
+								: ' border-gray-100/30 dark:border-gray-850/30 hover:border-gray-200 focus-within:border-gray-100 hover:dark:border-gray-800 focus-within:dark:border-gray-800'}  transition {isCompact ? 'px-1 py-2' : 'px-1'} bg-white/5 dark:bg-gray-850 dark:text-gray-100"
 							dir={$settings?.chatDirection ?? 'auto'}
 						>
 							{#if !isCompact}
@@ -1250,7 +1347,7 @@
 													<Image
 														src={fileUrl}
 														alt=""
-														imageClassName=" size-10 rounded-xl object-cover"
+														imageClassName=" size-8 rounded-lg object-cover"
 													/>
 													{#if atSelectedModel ? visionCapableModels.length === 0 : selectedModels.length !== visionCapableModels.length}
 														<Tooltip
@@ -1410,6 +1507,7 @@
 
 							<div class="{isCompact ? 'flex-1 min-w-0 px-1 flex items-center' : 'px-2.5'}">
 								<div
+									bind:this={chatInputContainerEl}
 									class="scrollbar-hidden rtl:text-right ltr:text-left bg-transparent dark:text-gray-100 outline-hidden w-full px-1 resize-none h-fit max-h-96 overflow-auto {files.length ===
 									0
 										? atSelectedModel !== undefined
@@ -1418,23 +1516,6 @@
 										: ''} {isCompact ? '' : 'pb-1'}"
 									id="chat-input-container"
 								>
-									{#if prompt.split('\n').length > 2}
-										<div class="fixed top-0 right-0 z-20">
-											<div class="mt-2.5 mr-3">
-												<button
-													type="button"
-													class="p-1 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
-													aria-label="Expand input"
-													on:click={async () => {
-														showInputModal = true;
-													}}
-												>
-													<Expand />
-												</button>
-											</div>
-										</div>
-									{/if}
-
 									{#if suggestions}
 										{#key $settings?.richTextInput ?? false}
 											{#key $settings?.showFormattingToolbar ?? false}
@@ -1446,6 +1527,37 @@
 														prompt = content.md;
 														inputContent = content;
 														command = getCommand();
+
+														const nodes = content.json?.content;
+														const isEmpty = !nodes || nodes.length === 0 ||
+															(nodes.length === 1 && (!nodes[0].content || nodes[0].content.length === 0));
+
+														if (isEmpty) {
+															isInputMultiline = false;
+															return;
+														}
+
+														const hasStructural = nodes.length > 1 ||
+															(Array.isArray(nodes[0].content) && nodes[0].content.some((n) => n.type === 'hardBreak'));
+
+														if (hasStructural) {
+															isInputMultiline = true;
+															return;
+														}
+
+														// Visual wrapping: only escalate, never de-escalate
+														// (expanded layout width differs from compact, causing oscillation)
+														tick().then(() => {
+															if (!chatInputContainerEl) return;
+															const firstP = chatInputContainerEl.querySelector('.ProseMirror p');
+															if (!firstP) return;
+															const style = getComputedStyle(firstP);
+															const lh = parseFloat(style.lineHeight);
+															const effectiveLH = isNaN(lh) ? parseFloat(style.fontSize) * 1.5 : lh;
+															if (firstP.getBoundingClientRect().height > effectiveLH + 4) {
+																isInputMultiline = true;
+															}
+														});
 													}}
 													json={true}
 													richText={$settings?.richTextInput ?? false}
@@ -1605,9 +1717,85 @@
 								</div>
 							</div>
 
+							{#if isCompact}
+								<div class="self-center flex items-center gap-3 shrink-0 pr-1">
+									{#if showThinkingButton}
+										<div class="relative flex items-center self-center" id="thinking-dropdown-container">
+											<button
+												type="button"
+												class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+												style="font-size: 0.79rem; font-family: 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: 0.01em;"
+												aria-label={thinkingEnabled ? 'Raciocínio' : 'Rápido'}
+												on:click|preventDefault={() => { showThinkingDropdown = !showThinkingDropdown; }}
+											>
+												<span>{thinkingEnabled ? 'Raciocínio' : 'Rápido'}</span>
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 transition-transform {showThinkingDropdown ? 'rotate-180' : ''}">
+													<path fill-rule="evenodd" d="M14.78 12.78a.75.75 0 0 1-1.06 0L10 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06Z" clip-rule="evenodd" />
+												</svg>
+											</button>
+
+											{#if showThinkingDropdown}
+												<div
+													class="absolute bottom-full mb-1.5 right-0 z-50 w-[15.5rem] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-850 shadow-md p-1 text-sm"
+													style="font-family: 'Segoe UI', sans-serif;"
+													transition:fly={{ y: 5, duration: 150 }}
+													on:click|stopPropagation
+												>
+													<button
+														type="button"
+														class="flex w-full items-center gap-2.5 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200 rounded-md"
+														on:click={() => { thinkingEnabled = false; showThinkingDropdown = false; }}
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
+															<path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+														</svg>
+														<div class="flex-1 text-left"><div>Rápido</div><div class="text-[13px] text-gray-400 dark:text-gray-500 font-normal">Para respostas rápidas</div></div>
+														{#if !thinkingEnabled}
+															<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
+																<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+															</svg>
+														{/if}
+													</button>
+													<button
+														type="button"
+														class="flex w-full items-center gap-2.5 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200 rounded-md"
+														on:click={() => { thinkingEnabled = true; showThinkingDropdown = false; }}
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4">
+															<path d="M12 2a7 7 0 0 0-7 7c0 2.862 1.782 5.3 4.25 6.318V17.5a.75.75 0 0 0 .75.75h4a.75.75 0 0 0 .75-.75v-2.182C17.218 14.3 19 11.862 19 9a7 7 0 0 0-7-7ZM9.25 19.75a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5h-5.5ZM9.75 22.75a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z" />
+														</svg>
+														<div class="flex-1 text-left"><div>Raciocínio</div><div class="text-[13px] text-gray-400 dark:text-gray-500 font-normal">Para tarefas complexas</div></div>
+														{#if thinkingEnabled}
+															<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
+																<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+															</svg>
+														{/if}
+													</button>
+												</div>
+											{/if}
+										</div>
+									{/if}
+
+									<Tooltip content={$i18n.t('Send message')}>
+										<button
+											id="send-message-button"
+											class="{prompt !== '' || files.length > 0
+												? 'bg-black text-white hover:bg-gray-900 dark:bg-white dark:text-black dark:hover:bg-gray-100 '
+												: 'text-white bg-gray-200 dark:text-gray-900 dark:bg-gray-700 disabled'} transition rounded-full p-1.5 self-center"
+											type="submit"
+											disabled={prompt === '' && files.length === 0}
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-5">
+												<path fill-rule="evenodd" d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z" clip-rule="evenodd" />
+											</svg>
+										</button>
+									</Tooltip>
+								</div>
+							{/if}
+
 							{#if !isCompact}
 							<div class=" flex justify-between mt-2 mb-2.5 mx-0.5 max-w-full" dir="ltr">
-								<div class="ml-1 self-end flex items-center flex-1 max-w-[80%]">
+								<div class="ml-1 self-end flex items-center flex-1 max-w-[80%] @container">
 									<InputMenu
 										bind:files
 										selectedModels={atSelectedModel ? [atSelectedModel.id] : selectedModels}
@@ -1729,34 +1917,28 @@
 
 										{#each selectedFilterIds as filterId}
 											{@const filter = toggleFilters.find((f) => f.id === filterId)}
-											{#if filter}												<Tooltip content={filter?.name} placement="top">
+											{#if filter}
+												<Tooltip content={filter?.name} placement="top">
 													<button
 														on:click|preventDefault={() => {
 															selectedFilterIds = selectedFilterIds.filter((id) => id !== filterId);
 														}}
 														type="button"
-														class="group py-[7px] px-2.5 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {selectedFilterIds.includes(
-															filterId
-														)
-															? 'text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-600/10 border border-sky-200/40 dark:border-sky-500/20'
-															: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '} capitalize"
+														class="group py-[7px] px-2.5 flex gap-1.5 items-center text-[0.8125rem] rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {selectedFilterIds.includes(filterId) ? 'text-sky-500 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-600/10' : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'} capitalize"
 													>
-														{#if filter?.icon}
-															<div class="size-4 items-center flex justify-center">
-																<img
-																	src={filter.icon}
-																	class="size-3.5 {filter.icon.includes('data:image/svg')
-																		? 'dark:invert-[80%]'
-																		: ''}"
-																	style="fill: currentColor;"
-																	alt={filter.name}
-																/>
-															</div>
-														{:else}
-															<Sparkles className="size-4" strokeWidth="1.75" />
-														{/if}
-														<div class="hidden group-hover:flex items-center">
-															<XMark className="size-4" strokeWidth="1.75" />
+														<div class="relative size-4 shrink-0 flex items-center justify-center">
+															<span class="group-hover:hidden flex items-center justify-center">
+																{#if filter?.icon}
+																	<div class="size-4 items-center flex justify-center">
+																		<img src={filter.icon} class="size-3.5 {filter.icon.includes('data:image/svg') ? 'dark:invert-[80%]' : ''}" style="fill: currentColor;" alt={filter.name} />
+																	</div>
+																{:else}
+																	<Sparkles className="size-4" strokeWidth="1.75" />
+																{/if}
+															</span>
+															<span class="hidden group-hover:flex items-center justify-center">
+																<XMark className="size-4" strokeWidth="1.75" />
+															</span>
 														</div>
 													</button>
 												</Tooltip>
@@ -1764,242 +1946,260 @@
 										{/each}
 
 										{#if webSearchEnabled}
-											<Tooltip content={$i18n.t('Web Search')} placement="top">
-												<button
-													on:click|preventDefault={() => (webSearchEnabled = !webSearchEnabled)}
-													type="button"
-													class="group py-[7px] px-2.5 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {webSearchEnabled ||
-													($settings?.webSearch ?? false) === 'always'
-														? ' text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-600/10 border border-sky-200/40 dark:border-sky-500/20'
-														: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '}"
-												>
-													<GlobeAlt className="size-4" strokeWidth="1.75" />
-													<span class="text-xs font-medium">Buscar</span>
-													<div class="hidden group-hover:flex items-center">
+											<button
+												on:click|preventDefault={() => (webSearchEnabled = !webSearchEnabled)}
+												type="button"
+												class="group py-[7px] px-2.5 flex gap-1.5 items-center text-[0.8125rem] rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden text-sky-500 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-600/10"
+											>
+												<div class="relative size-4 shrink-0 flex items-center justify-center">
+													<span class="group-hover:hidden flex items-center justify-center">
+														<GlobeAlt className="size-4" strokeWidth="1.75" />
+													</span>
+													<span class="hidden group-hover:flex items-center justify-center">
 														<XMark className="size-4" strokeWidth="1.75" />
-													</div>
-												</button>
-											</Tooltip>
+													</span>
+												</div>
+												<span class="text-[0.8125rem] font-medium hidden @sm:inline">Busca</span>
+											</button>
 										{/if}
 
 										{#if imageGenerationEnabled}
-											<Tooltip content={$i18n.t('Image')} placement="top">
-												<button
-													on:click|preventDefault={() =>
-														(imageGenerationEnabled = !imageGenerationEnabled)}
-													type="button"
-													class="group py-[7px] px-2.5 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {imageGenerationEnabled
-														? ' text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-700/10 border border-sky-200/40 dark:border-sky-500/20'
-														: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '}"
-												>
-													<Photo className="size-4" strokeWidth="1.75" />
-													<span class="text-xs font-medium">Imagem</span>
-													<div class="hidden group-hover:flex items-center">
+											<button
+												on:click|preventDefault={() => (imageGenerationEnabled = !imageGenerationEnabled)}
+												type="button"
+												class="group py-[7px] px-2.5 flex gap-1.5 items-center text-[0.8125rem] rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden text-sky-500 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-700/10"
+											>
+												<div class="relative size-4 shrink-0 flex items-center justify-center">
+													<span class="group-hover:hidden flex items-center justify-center">
+														<Photo className="size-4" strokeWidth="1.75" />
+													</span>
+													<span class="hidden group-hover:flex items-center justify-center">
 														<XMark className="size-4" strokeWidth="1.75" />
-													</div>
-												</button>
-											</Tooltip>
+													</span>
+												</div>
+												<span class="text-[0.8125rem] font-medium hidden @sm:inline">Imagem</span>
+											</button>
 										{/if}
 
 										{#if codeInterpreterEnabled}
-											<Tooltip content={$i18n.t('Code Interpreter')} placement="top">
-												<button
-													aria-label={codeInterpreterEnabled
-														? $i18n.t('Disable Code Interpreter')
-														: $i18n.t('Enable Code Interpreter')}
-													aria-pressed={codeInterpreterEnabled}
-													on:click|preventDefault={() =>
-														(codeInterpreterEnabled = !codeInterpreterEnabled)}
-													type="button"
-													class=" group py-[7px] px-2.5 flex gap-1.5 items-center text-sm transition-colors duration-300 max-w-full overflow-hidden {codeInterpreterEnabled
-														? ' text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-700/10 border border-sky-200/40 dark:border-sky-500/20'
-														: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '} {($settings?.highContrastMode ??
-													false)
-														? 'm-1'
-														: 'focus:outline-hidden rounded-full'}"
-												>
-													<Cloud className="size-4" strokeWidth="1.75" />
-													<span class="text-xs font-medium">Intérprete</span>
-
-													<div class="hidden group-hover:flex items-center">
+											<button
+												aria-label={codeInterpreterEnabled ? $i18n.t('Disable Code Interpreter') : $i18n.t('Enable Code Interpreter')}
+												aria-pressed={codeInterpreterEnabled}
+												on:click|preventDefault={() => (codeInterpreterEnabled = !codeInterpreterEnabled)}
+												type="button"
+												class="group py-[7px] px-2.5 flex gap-1.5 items-center text-[0.8125rem] transition-colors duration-300 max-w-full overflow-hidden text-amber-500 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-700/10 {($settings?.highContrastMode ?? false) ? 'm-1' : 'focus:outline-hidden rounded-full'}"
+											>
+												<div class="relative size-4 shrink-0 flex items-center justify-center">
+													<span class="group-hover:hidden flex items-center justify-center">
+														<Terminal className="size-4" strokeWidth="1.75" />
+													</span>
+													<span class="hidden group-hover:flex items-center justify-center">
 														<XMark className="size-4" strokeWidth="1.75" />
-													</div>
-												</button>
-											</Tooltip>
+													</span>
+												</div>
+												<span class="text-[0.8125rem] font-medium hidden @sm:inline">Intérprete</span>
+											</button>
 										{/if}
 
 										{#if codeExecutionEnabled}
-											<Tooltip content={$i18n.t('Code Execution')} placement="top">
-												<button
-													aria-label={codeExecutionEnabled
-														? $i18n.t('Disable Code Execution')
-														: $i18n.t('Enable Code Execution')}
-													aria-pressed={codeExecutionEnabled}
-													on:click|preventDefault={() =>
-														(codeExecutionEnabled = !codeExecutionEnabled)}
-													type="button"
-													class=" group py-[7px] px-2.5 flex gap-1.5 items-center text-sm transition-colors duration-300 max-w-full overflow-hidden {codeExecutionEnabled
-														? ' text-emerald-500 dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-400/10 dark:hover:bg-emerald-700/10 border border-emerald-200/40 dark:border-emerald-500/20'
-														: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '} {($settings?.highContrastMode ??
-													false)
-														? 'm-1'
-														: 'focus:outline-hidden rounded-full'}"
-												>
-													<Code className="size-4" strokeWidth="1.75" />
-													<span class="text-xs font-medium">Artefatos</span>
-
-													<div class="hidden group-hover:flex items-center">
+											<button
+												aria-label={codeExecutionEnabled ? $i18n.t('Disable Code Execution') : $i18n.t('Enable Code Execution')}
+												aria-pressed={codeExecutionEnabled}
+												on:click|preventDefault={() => (codeExecutionEnabled = !codeExecutionEnabled)}
+												type="button"
+												class="group py-[7px] px-2.5 flex gap-1.5 items-center text-[0.8125rem] transition-colors duration-300 max-w-full overflow-hidden text-emerald-500 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-700/10 {($settings?.highContrastMode ?? false) ? 'm-1' : 'focus:outline-hidden rounded-full'}"
+											>
+												<div class="relative size-4 shrink-0 flex items-center justify-center">
+													<span class="group-hover:hidden flex items-center justify-center">
+														<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" class="size-4"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+													</span>
+													<span class="hidden group-hover:flex items-center justify-center">
 														<XMark className="size-4" strokeWidth="1.75" />
-													</div>
-												</button>
-											</Tooltip>
+													</span>
+												</div>
+												<span class="text-[0.8125rem] font-medium hidden @sm:inline">Artefatos</span>
+											</button>
 										{/if}
 
 										{#if stableDiffusionEnabled}
-											<Tooltip content={$i18n.t('Geração de imagem')} placement="top">
-												<button
-													on:click|preventDefault={() =>
-														(stableDiffusionEnabled = !stableDiffusionEnabled)}
-													type="button"
-													class="group py-[7px] px-2.5 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden text-pink-500 dark:text-pink-300 bg-pink-50 hover:bg-pink-100 dark:bg-pink-400/10 dark:hover:bg-pink-700/10 border border-pink-200/40 dark:border-pink-500/20"
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
-														<path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0l-3.97 3.97zM12 7a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" />
-													</svg>
-													<span class="text-xs font-medium">Imagem</span>
-													<div class="hidden group-hover:flex items-center">
+											<button
+												on:click|preventDefault={() => (stableDiffusionEnabled = !stableDiffusionEnabled)}
+												type="button"
+												class="group py-[7px] px-2.5 flex gap-1.5 items-center text-[0.8125rem] rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden text-pink-500 dark:text-pink-300 hover:bg-pink-100 dark:hover:bg-pink-700/10"
+											>
+												<div class="relative size-4 shrink-0 flex items-center justify-center">
+													<span class="group-hover:hidden flex items-center justify-center">
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0l-3.97 3.97zM12 7a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" /></svg>
+													</span>
+													<span class="hidden group-hover:flex items-center justify-center">
 														<XMark className="size-4" strokeWidth="1.75" />
-													</div>
-												</button>
-											</Tooltip>
+													</span>
+												</div>
+												<span class="text-[0.8125rem] font-medium hidden @sm:inline">Imagem</span>
+											</button>
 										{/if}
+
 									</div>
 								</div>
-
 								<div class="self-end flex space-x-1 mr-1 shrink-0 gap-[0.5px]">
-									{#if (taskIds && taskIds.length > 0) || (history.currentId && history.messages[history.currentId]?.done != true) || generating}
-										<div class=" flex items-center">
-											<Tooltip content={$i18n.t('Stop')}>
-												<button
-													class="bg-white hover:bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-1.5"
-													on:click={() => {
-														stopResponse();
-													}}
+									{#if generating || (history?.currentId && history?.messages[history.currentId]?.done !== true) || uploadPending}
+										<Tooltip content={$i18n.t('Stop')}>
+											<button
+												class="bg-white hover:bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-800 transition rounded-full p-1.5"
+												type="button"
+												on:click={() => {
+													stopResponse();
+												}}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 24 24"
+													fill="currentColor"
+													class="size-5"
 												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														viewBox="0 0 24 24"
-														fill="currentColor"
-														class="size-5"
-													>
-														<path
-															fill-rule="evenodd"
-															d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm6-2.438c0-.724.588-1.312 1.313-1.312h4.874c.725 0 1.313.588 1.313 1.313v4.874c0 .725-.588 1.313-1.313 1.313H9.564a1.312 1.312 0 01-1.313-1.313V9.564z"
-															clip-rule="evenodd"
-														/>
+													<path
+														fill-rule="evenodd"
+														d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm6-2.438c0-.724.588-1.312 1.313-1.312h4.874c.725 0 1.313.588 1.313 1.313v4.874c0 .725-.588 1.313-1.313 1.313H9.564a1.312 1.312 0 01-1.313-1.313V9.564z"
+														clip-rule="evenodd"
+													/>
+												</svg>
+											</button>
+										</Tooltip>
+									{:else}
+										{#if (selectedToolIds ?? []).length > 0 || ($terminalServers ?? []).some((s) => s.url)}
+											<TerminalMenu bind:show={showTools} />
+										{/if}
+
+										{#if showThinkingButton}
+											<div class="relative flex items-center self-center mr-2" id="thinking-dropdown-container">
+												<button
+													type="button"
+													class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+													style="font-size: 0.79rem; font-family: 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: 0.01em;"
+													aria-label={thinkingEnabled ? 'Raciocínio' : 'Rápido'}
+													on:click|preventDefault={() => { showThinkingDropdown = !showThinkingDropdown; }}
+												>
+													<span>{thinkingEnabled ? 'Raciocínio' : 'Rápido'}</span>
+													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 transition-transform {showThinkingDropdown ? 'rotate-180' : ''}">
+														<path fill-rule="evenodd" d="M14.78 12.78a.75.75 0 0 1-1.06 0L10 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06Z" clip-rule="evenodd" />
 													</svg>
 												</button>
-											</Tooltip>
-										</div>
-									{:else}
-										{#if prompt !== '' && !history?.currentId && ($config?.features?.enable_notes ?? false) && ($_user?.role === 'admin' || ($_user?.permissions?.features?.notes ?? true))}
-											<!-- {$i18n.t('Create Note')}  -->
-											<Tooltip content={$i18n.t('Create note')} className=" flex items-center">
-												<button
-													id="create-note-button"
-													class=" text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200 transition rounded-full p-1.5 self-center"
-													type="button"
-													disabled={prompt === '' && files.length === 0}
-													on:click={() => {
-														createNote();
-													}}
-												>
-													<PageEdit className="size-4.5 translate-y-[0.5px]" />
-												</button>
-											</Tooltip>
+
+												{#if showThinkingDropdown}
+													<div
+														class="absolute bottom-full mb-1.5 right-0 z-50 w-[15.5rem] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-850 shadow-md p-1 text-sm"
+														style="font-family: 'Segoe UI', sans-serif;"
+														transition:fly={{ y: 5, duration: 150 }}
+														on:click|stopPropagation
+													>
+														<button
+															type="button"
+															class="flex w-full items-center gap-2.5 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200 rounded-md"
+															on:click={() => { thinkingEnabled = false; showThinkingDropdown = false; }}
+														>
+															<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
+																<path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+															</svg>
+															<div class="flex-1 text-left"><div>Rápido</div><div class="text-[13px] text-gray-400 dark:text-gray-500 font-normal">Para respostas rápidas</div></div>
+															{#if !thinkingEnabled}
+																<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
+																	<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+																</svg>
+															{/if}
+														</button>
+														<button
+															type="button"
+															class="flex w-full items-center gap-2.5 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200 rounded-md"
+															on:click={() => { thinkingEnabled = true; showThinkingDropdown = false; }}
+														>
+															<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4">
+																<path d="M12 2a7 7 0 0 0-7 7c0 2.862 1.782 5.3 4.25 6.318V17.5a.75.75 0 0 0 .75.75h4a.75.75 0 0 0 .75-.75v-2.182C17.218 14.3 19 11.862 19 9a7 7 0 0 0-7-7ZM9.25 19.75a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5h-5.5ZM9.75 22.75a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z" />
+															</svg>
+															<div class="flex-1 text-left"><div>Raciocínio</div><div class="text-[13px] text-gray-400 dark:text-gray-500 font-normal">Para tarefas complexas</div></div>
+															{#if thinkingEnabled}
+																<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
+																	<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+																</svg>
+															{/if}
+														</button>
+													</div>
+												{/if}
+											</div>
 										{/if}
 
-										{#if !history?.currentId || history.messages[history.currentId]?.done == true}
-											<!-- Terminal Server Selector -->
-											{#if ($terminalServers ?? []).length > 0 || ($settings?.terminalServers ?? []).some((s) => s.url)}
-												<TerminalMenu bind:show={showTerminalMenu} />
-											{/if}
-
-											{#if showThinkingButton}
-												<div class="relative flex items-center self-center mr-3" id="thinking-dropdown-container">
-													<button
-														type="button"
-														class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" style="font-size: 0.79rem; font-family: 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: 0.01em;"
-														on:click|stopPropagation={() => { showThinkingDropdown = !showThinkingDropdown; }}
-														aria-label={thinkingEnabled ? 'Raciocínio' : 'Rápido'}
-													>
-														<span>{thinkingEnabled ? 'Raciocínio' : 'Rápido'}</span>
-														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 transition-transform {showThinkingDropdown ? 'rotate-180' : ''}">
-															<path fill-rule="evenodd" d="M14.78 12.78a.75.75 0 0 1-1.06 0L10 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06Z" clip-rule="evenodd" />
-														</svg>
-													</button>
-
-													{#if showThinkingDropdown}
-														<!-- svelte-ignore a11y-click-events-have-key-events -->
-														<!-- svelte-ignore a11y-no-static-element-interactions -->
-														<div class="absolute bottom-full mb-1.5 right-0 z-50 w-[11rem] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-850 shadow-lg py-1 text-sm" style="font-family: 'Segoe UI', sans-serif;" transition:fly={{ y: 5, duration: 150 }} on:click|stopPropagation>
-															<button
-																type="button"
-																class="flex w-full items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200"
-																on:click={() => { thinkingEnabled = false; showThinkingDropdown = false; }}
-															>
-																<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" /></svg>
-																<span class="flex-1 text-left">Rápido</span>
-																{#if !thinkingEnabled}
-																	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
-																{/if}
-															</button>
-															<button
-																type="button"
-																class="flex w-full items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200"
-																on:click={() => { thinkingEnabled = true; showThinkingDropdown = false; }}
-															>
-																<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4"><path d="M12 2a7 7 0 0 0-7 7c0 2.862 1.782 5.3 4.25 6.318V17.5a.75.75 0 0 0 .75.75h4a.75.75 0 0 0 .75-.75v-2.182C17.218 14.3 19 11.862 19 9a7 7 0 0 0-7-7ZM9.25 19.75a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5h-5.5ZM9.75 22.75a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z" /></svg>
-																<span class="flex-1 text-left">Raciocínio</span>
-																{#if thinkingEnabled}
-																	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
-																{/if}
-															</button>
-														</div>
-													{/if}
+										{#if lastUsage}
+											{@const totalTokens = lastUsage.total_tokens ?? ((lastUsage.prompt_tokens ?? lastUsage.input_tokens ?? 0) + (lastUsage.completion_tokens ?? lastUsage.output_tokens ?? 0))}
+											{@const contextModel = (() => { const mid = atSelectedModel?.id ?? selectedModels?.[0]; return $models.find((m) => m.id === mid); })()}
+											{@const contextWindow = contextModel?.llamacpp?.n_ctx || contextModel?.info?.params?.num_ctx || contextModel?.info?.meta?.context_length || 128000}
+											{@const usageRatio = Math.min(totalTokens / contextWindow, 1)}
+											{@const ringRadius = 9}
+											{@const circumference = 2 * Math.PI * ringRadius}
+											{@const strokeOffset = circumference * (1 - usageRatio)}
+											{@const ringColor = usageRatio > 0.9 ? '#ef4444' : usageRatio > 0.7 ? '#f59e0b' : '#6b7280'}
+											<!-- svelte-ignore a11y-no-static-element-interactions -->
+											<div
+												class="relative flex items-center mr-3"
+												on:mouseenter={() => (showTokenPopup = true)}
+												on:mouseleave={() => (showTokenPopup = false)}
+											>
+												<div class="flex items-center gap-1 px-1 cursor-default select-none">
+													<svg width="24" height="24" viewBox="0 0 22 22" class="shrink-0">
+														<circle cx="11" cy="11" r={ringRadius} fill="none" stroke="currentColor" stroke-width="2" class="text-gray-200 dark:text-gray-700" />
+														<circle cx="11" cy="11" r={ringRadius} fill="none" stroke={ringColor} stroke-width="2" stroke-linecap="round" stroke-dasharray={circumference} stroke-dashoffset={strokeOffset} transform="rotate(-90 11 11)" class="transition-all duration-500" />
+													</svg>
+													<span class="text-[14px] font-medium tabular-nums" style="color: {ringColor}">{(usageRatio * 100).toFixed(1)}%</span>
 												</div>
-											{/if}
 
+												{#if showTokenPopup}
+													<div
+														class="absolute bottom-full mb-2.5 z-[60] w-56 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-850 shadow-xl p-3.5 {$mobile ? 'right-0' : $showArtifacts ? 'right-0' : 'right-1/2 translate-x-1/2'}"
+														style="font-family: 'Segoe UI', sans-serif;"
+														transition:fly={{ y: 4, duration: 150 }}
+													>
+														<div class="flex items-center gap-1.5 mb-2.5">
+															<svg width="16" height="16" viewBox="0 0 22 22" class="shrink-0">
+																<circle cx="11" cy="11" r="9" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-300 dark:text-gray-600" />
+																<circle cx="11" cy="11" r="9" fill="none" stroke={ringColor} stroke-width="2" stroke-linecap="round" stroke-dasharray={circumference} stroke-dashoffset={strokeOffset} transform="rotate(-90 11 11)" />
+															</svg>
+															<span class="text-[14px] font-semibold text-gray-700 dark:text-gray-200">Uso de Tokens</span>
+														</div>
+														<div class="w-full h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 mb-3 overflow-hidden">
+															<div class="h-full rounded-full transition-all duration-500" style="width: {Math.max(usageRatio * 100, 1)}%; background-color: {ringColor}" />
+														</div>
+														<div class="space-y-1.5">
+															<div class="flex justify-between items-center">
+																<span class="text-[14px] text-gray-500 dark:text-gray-400">Total</span>
+																<span class="text-[14px] font-semibold tabular-nums text-gray-700 dark:text-gray-200">{formatTokens(totalTokens)}</span>
+															</div>
+															<div class="flex justify-between items-center">
+																<span class="text-[14px] text-gray-500 dark:text-gray-400">Contexto</span>
+																<span class="text-[14px] font-semibold tabular-nums text-gray-700 dark:text-gray-200">{formatTokens(contextWindow)}</span>
+															</div>
+															<div class="flex justify-between items-center pt-1.5 mt-1 border-t border-gray-100 dark:border-gray-700/50">
+																<span class="text-[14px] text-gray-500 dark:text-gray-400">Utilização</span>
+																<span class="text-[14px] font-semibold tabular-nums" style="color: {ringColor}">{(usageRatio * 100).toFixed(1)}%</span>
+															</div>
+														</div>
+													</div>
+												{/if}
+											</div>
 										{/if}
 
 										<div class=" flex items-center">
-											<Tooltip
-												content={uploadPending
-													? $i18n.t('Waiting for upload...')
-													: $i18n.t('Send message')}
-											>
+											<Tooltip content={uploadPending ? $i18n.t('Waiting for upload...') : $i18n.t('Send message')}>
 												<button
 													id="send-message-button"
-													class="{!(prompt === '' && files.length === 0) || uploadPending
+													class="{prompt !== '' || files.length > 0 || uploadPending
 														? 'bg-black text-white hover:bg-gray-900 dark:bg-white dark:text-black dark:hover:bg-gray-100 '
 														: 'text-white bg-gray-200 dark:text-gray-900 dark:bg-gray-700 disabled'} transition rounded-full p-1.5 self-center"
 													type="submit"
-													disabled={(prompt === '' && files.length === 0) || uploadPending}
+													disabled={prompt === '' && files.length === 0 || uploadPending}
 												>
 													{#if uploadPending}
 														<Spinner className="size-5" />
 													{:else}
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															viewBox="0 0 16 16"
-															fill="currentColor"
-															class="size-5"
-														>
-															<path
-																fill-rule="evenodd"
-																d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z"
-																clip-rule="evenodd"
-															/>
+														<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-5">
+															<path fill-rule="evenodd" d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z" clip-rule="evenodd" />
 														</svg>
 													{/if}
 												</button>
@@ -2008,85 +2208,8 @@
 									{/if}
 								</div>
 							</div>
-							{:else}
-							<div class="pr-0.5 flex items-center gap-0.5 shrink-0">
-								{#if showThinkingButton}
-									<div class="relative flex items-center self-center mr-1" id="thinking-dropdown-container">
-										<button
-											type="button"
-											class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" style="font-size: 0.79rem; font-family: 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: 0.01em;"
-											on:click|stopPropagation={() => { showThinkingDropdown = !showThinkingDropdown; }}
-											aria-label={thinkingEnabled ? 'Raciocínio' : 'Rápido'}
-										>
-											<span>{thinkingEnabled ? 'Raciocínio' : 'Rápido'}</span>
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 transition-transform {showThinkingDropdown ? 'rotate-180' : ''}">
-												<path fill-rule="evenodd" d="M14.78 12.78a.75.75 0 0 1-1.06 0L10 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06Z" clip-rule="evenodd" />
-											</svg>
-										</button>
-										{#if showThinkingDropdown}
-											<!-- svelte-ignore a11y-click-events-have-key-events -->
-											<!-- svelte-ignore a11y-no-static-element-interactions -->
-											<div class="absolute bottom-full mb-1.5 right-0 z-50 w-[11rem] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-850 shadow-lg py-1 text-sm" style="font-family: 'Segoe UI', sans-serif;" transition:fly={{ y: 5, duration: 150 }} on:click|stopPropagation>
-												<button
-												  type="button"
-												  class="flex w-full items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200"
-												  on:click={() => { thinkingEnabled = false; showThinkingDropdown = false; }}
-												>
-												  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" /></svg>
-												  <span class="flex-1 text-left">Rápido</span>
-												  {#if !thinkingEnabled}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>{/if}
-												</button>
-												<button
-												  type="button"
-												  class="flex w-full items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200"
-												  on:click={() => { thinkingEnabled = true; showThinkingDropdown = false; }}
-												>
-												  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4"><path d="M12 2a7 7 0 0 0-7 7c0 2.862 1.782 5.3 4.25 6.318V17.5a.75.75 0 0 0 .75.75h4a.75.75 0 0 0 .75-.75v-2.182C17.218 14.3 19 11.862 19 9a7 7 0 0 0-7-7ZM9.25 19.75a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5h-5.5ZM9.75 22.75a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z" /></svg>
-												  <span class="flex-1 text-left">Raciocínio</span>
-												  {#if thinkingEnabled}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>{/if}
-												</button>
-											</div>
-										{/if}
-									</div>
-								{/if}
-								<div class="flex items-center">
-									<Tooltip
-										content={uploadPending
-											? $i18n.t('Waiting for upload...')
-											: $i18n.t('Send message')}
-									>
-										<button
-											id="send-message-button"
-											class="{!(prompt === '' && files.length === 0) || uploadPending
-												? 'bg-black text-white hover:bg-gray-900 dark:bg-white dark:text-black dark:hover:bg-gray-100 '
-												: 'text-white bg-gray-200 dark:text-gray-900 dark:bg-gray-700 disabled'} transition rounded-full p-1.5 self-center"
-											type="submit"
-											disabled={(prompt === '' && files.length === 0) || uploadPending}
-										>
-											{#if uploadPending}
-												<Spinner className="size-5" />
-											{:else}
-												<svg
-												  xmlns="http://www.w3.org/2000/svg"
-												  viewBox="0 0 16 16"
-												  fill="currentColor"
-												  class="size-5"
-												>
-												  <path
-												    fill-rule="evenodd"
-												    d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z"
-												    clip-rule="evenodd"
-												  />
-												</svg>
-											{/if}
-										</button>
-									</Tooltip>
-								</div>
-							</div>
 							{/if}
 						</div>
-
-						<div class="mb-1" />
 					</form>
 				</div>
 			</div>

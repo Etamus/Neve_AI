@@ -44,9 +44,9 @@
 	role="option"
 	aria-selected={value === item.value}
 	aria-label={$i18n.t('Select {{modelName}} model', { modelName: item.label })}
-	class="flex group/item w-full text-left font-medium line-clamp-1 select-none items-center rounded-button py-2 pl-3 pr-1.5 text-sm text-gray-700 dark:text-gray-100 outline-hidden transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl cursor-pointer data-highlighted:bg-muted {index ===
+	class="flex group/item w-full text-left font-medium line-clamp-1 select-none items-center rounded-lg py-1.5 pl-3 pr-1.5 text-sm text-gray-700 dark:text-gray-100 outline-hidden transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer data-highlighted:bg-muted {index ===
 	selectedModelIdx
-		? 'bg-gray-100 dark:bg-gray-800 group-hover:bg-transparent'
+		? 'bg-gray-100 dark:bg-gray-700/60'
 		: ''}"
 	data-arrow-selected={index === selectedModelIdx}
 	data-value={item.value}
@@ -72,17 +72,29 @@
 		{/if} -->
 
 		<div class="flex items-center gap-2">
-			<div class="flex items-center min-w-fit">
+			<div class="flex items-center min-w-fit relative group/pin">
 				<img
 					src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${item.model.id}&lang=${$i18n.language}`}
 					alt={$i18n.t('{{modelName}} profile image', { modelName: item.label })}
-					class="rounded-full size-5 flex items-center"
+					class="rounded-full size-5 flex items-center group-hover/pin:opacity-0 transition-opacity"
 					loading="lazy"
 				/>
+				<!-- svelte-ignore a11y-click-events-have-key-events -->
+				<!-- svelte-ignore a11y-no-static-element-interactions -->
+				<div
+					class="absolute inset-0 size-5 rounded-full flex items-center justify-center opacity-0 group-hover/pin:opacity-100 transition-opacity text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
+					on:click|stopPropagation|preventDefault={() => pinModelHandler(item.model.id)}
+				>
+					{#if ($settings?.pinnedModels ?? []).includes(item.model.id)}
+						<PinSlash className="size-3.5" />
+					{:else}
+						<Pin className="size-3.5" />
+					{/if}
+				</div>
 			</div>
 
 			<div class="flex items-center">
-				<Tooltip content={`${item.label} (${item.value.replace(/^local\//, '')})`} placement="top-start">
+				<Tooltip content={item.model?.info?.meta?.description ? `${marked.parse(sanitizeResponseContent(item.model?.info?.meta?.description).replaceAll('\n', '<br>'))}` : `${item.label} (${item.value.replace(/^local\//, '')})`} placement="top-start">
 					<div class="line-clamp-1">
 						{item.label}
 					</div>
@@ -195,30 +207,6 @@
 					</Tooltip>
 				{/if}
 
-				{#if item.model?.info?.meta?.description}
-					<Tooltip
-						content={`${marked.parse(
-							sanitizeResponseContent(item.model?.info?.meta?.description).replaceAll('\n', '<br>')
-						)}`}
-					>
-						<div class=" -translate-y-[1px]">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="1.5"
-								stroke="currentColor"
-								class="w-4 h-4"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
-								/>
-							</svg>
-						</div>
-					</Tooltip>
-				{/if}
 			</div>
 		</div>
 	</div>
@@ -243,27 +231,7 @@
 			</Tooltip>
 		{/if}
 
-		<!-- Pin direto, sem dropdown -->
-		<Tooltip
-			content={($settings?.pinnedModels ?? []).includes(item.model?.id) ? $i18n.t('Desfixar') : $i18n.t('Fixar')}
-			className="flex-shrink-0 group-hover/item:opacity-100 opacity-0"
-		>
-			<button
-				aria-label={($settings?.pinnedModels ?? []).includes(item.model?.id) ? $i18n.t('Desfixar') : $i18n.t('Fixar')}
-				class="flex"
-				on:click={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					pinModelHandler(item.model?.id);
-				}}
-			>
-				{#if ($settings?.pinnedModels ?? []).includes(item.model?.id)}
-					<PinSlash className="size-3" />
-				{:else}
-					<Pin className="size-3" />
-				{/if}
-			</button>
-		</Tooltip>
+
 
 		{#if value === item.value}
 			<div>

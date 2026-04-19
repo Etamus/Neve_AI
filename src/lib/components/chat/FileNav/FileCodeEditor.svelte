@@ -92,10 +92,11 @@
 				'&': { fontSize: '0.75rem', height: '100%' },
 				'.cm-content': {
 					padding: '0.5rem 0',
-					fontFamily: "'Geist Mono', monospace"
+					fontFamily: "'Segoe UI', monospace"
 				},
 				'.cm-scroller': { overflow: 'auto' },
-				'.cm-focused': { outline: 'none' }
+				'.cm-focused': { outline: 'none' },
+				'.cm-foldGutter': { display: 'none !important' }
 			})
 		];
 

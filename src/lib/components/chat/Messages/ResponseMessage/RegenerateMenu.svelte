@@ -24,10 +24,11 @@
 		}
 	}}
 	align="end"
+	triggerClassName="p-0 m-0 border-0 bg-transparent appearance-none inline-flex items-center leading-none"
 >
 	<slot></slot>
 
-	<div slot="content">
+	<svelte:fragment slot="content">
 		<DropdownMenu.Content
 			class="w-full max-w-[200px] rounded-2xl px-1 py-1 border border-gray-100 dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg transition"
 			sideOffset={-2}
@@ -75,10 +76,7 @@
 							/>
 						</svg>
 					</button>
-				</div>
-			</div>
-			<hr class="border-gray-50/30 dark:border-gray-800/30 my-1 mx-2" />
-			<DropdownMenu.Item
+				</div>\n\t\t\t</div>\n\t\t\t<DropdownMenu.Item
 				class="select-none flex  gap-2  items-center px-3 py-1.5 text-sm  cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl"
 				on:click={() => {
 					onRegenerate();
@@ -123,5 +121,5 @@
 				<div class="flex items-center">{$i18n.t('More Concise')}</div>
 			</DropdownMenu.Item>
 		</DropdownMenu.Content>
-	</div>
+	</svelte:fragment>
 </Dropdown>

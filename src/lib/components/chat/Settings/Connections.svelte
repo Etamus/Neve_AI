@@ -136,7 +136,7 @@
 							{$i18n.t('Connect to your own OpenAI compatible API endpoints.')}
 							<br />
 							{$i18n.t(
-								'CORS must be properly configured by the provider to allow requests from Open WebUI.'
+								'CORS must be properly configured by the provider to allow requests from Neve.'
 							)}
 						</div>
 					</div>
@@ -151,12 +151,4 @@
 		{/if}
 	</div>
 
-	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full"
-			type="submit"
-		>
-			{$i18n.t('Save')}
-		</button>
-	</div>
 </form>

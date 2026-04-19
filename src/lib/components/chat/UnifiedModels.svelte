@@ -1,5 +1,6 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import { onMount, onDestroy, getContext } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { marked } from 'marked';
 	import fileSaver from 'file-saver';
 	const { saveAs } = fileSaver;
@@ -36,7 +37,6 @@
 	import ModelEditor from '$lib/components/workspace/Models/ModelEditor.svelte';
 	import ModelMenu from '$lib/components/admin/Settings/Models/ModelMenu.svelte';
 	import Pagination from '$lib/components/common/Pagination.svelte';
-	import Switch from '$lib/components/common/Switch.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -45,6 +45,8 @@
 	import EllipsisHorizontal from '$lib/components/icons/EllipsisHorizontal.svelte';
 	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
 	import Eye from '$lib/components/icons/Eye.svelte';
+	import Pin from '$lib/components/icons/Pin.svelte';
+	import PinSlash from '$lib/components/icons/PinSlash.svelte';
 	import CheckCircle from '$lib/components/icons/CheckCircle.svelte';
 	import Minus from '$lib/components/icons/Minus.svelte';
 
@@ -59,6 +61,11 @@
 	let confirmVisionCallback: { onNo: () => void; onYes: () => void } | null = null;
 	let mmProjSelectorModel: LocalModel | null = null;
 	let mmProjSelectedFile: string = '';
+
+	// ─── Unified load modal state ────────────────────────────────────────────
+	let loadModalModel: LocalModel | null = null;
+	let loadModalStep: 'context' | 'vision' | 'mmproj' = 'context';
+	let loadModalFromContext = false;
 
 	let gpuLayers: number = -1;
 	let contextSize: number = 8192;
@@ -139,21 +146,23 @@
 	}
 
 	// ─── LOCAL MODEL FUNCTIONS ───────────────────────────────────────────────
-	async function refreshLocalModels() {
-		localLoading = true;
+	async function refreshLocalModels(initial = true) {
+		if (initial) localLoading = true;
 		localError = '';
 		try {
-			[localModels, mmProjFiles] = await Promise.all([
+			const [newLocalModels, newMmProjFiles] = await Promise.all([
 				getLocalModels(localStorage.token),
 				getMmProjFiles(localStorage.token)
 			]);
+			if (JSON.stringify(newLocalModels) !== JSON.stringify(localModels)) localModels = newLocalModels;
+			if (JSON.stringify(newMmProjFiles) !== JSON.stringify(mmProjFiles)) mmProjFiles = newMmProjFiles;
 		} catch (e: any) {
 			localError =
 				e.message === 'Failed to fetch'
 					? 'Falha ao buscar'
 					: e.message || 'Erro ao buscar modelos locais';
 		} finally {
-			localLoading = false;
+			if (initial) localLoading = false;
 		}
 	}
 
@@ -176,37 +185,46 @@
 	}
 
 	function startLoadWithContextModal(model: LocalModel) {
+		loadModalModel = model;
+		loadModalStep = 'context';
+		loadModalFromContext = true;
 		contextModalModel = model;
 		contextModalSize = 8192;
 	}
 
 	function confirmContextAndProceed() {
-		const model = contextModalModel;
+		const model = contextModalModel ?? loadModalModel;
 		if (!model) return;
 		contextSize = contextModalSize;
 		contextModalModel = null;
 		if (mmProjFiles.length > 0) {
-			confirmVisionCallback = {
-				onNo: () => handleLoad(model),
-				onYes: () => {
-					mmProjSelectorModel = model;
-					mmProjSelectedFile = '';
-				}
-			};
+			loadModalStep = 'vision';
 		} else {
+			loadModalModel = null;
 			handleLoad(model);
 		}
 	}
 
+	function handleVisionNo() {
+		const model = loadModalModel;
+		const fromContext = loadModalFromContext;
+		loadModalModel = null;
+		confirmVisionCallback = null;
+		if (fromContext && model) handleLoad(model);
+	}
+
+	function handleVisionYes() {
+		loadModalStep = 'mmproj';
+		mmProjSelectorModel = loadModalModel;
+		mmProjSelectedFile = '';
+		confirmVisionCallback = null;
+	}
+
 	function openVisionSelector(model: LocalModel) {
 		if (mmProjFiles.length > 0) {
-			confirmVisionCallback = {
-				onNo: () => {},
-				onYes: () => {
-					mmProjSelectorModel = model;
-					mmProjSelectedFile = model.mmproj_filename ?? '';
-				}
-			};
+			loadModalModel = model;
+			loadModalStep = 'vision';
+			loadModalFromContext = false;
 		}
 	}
 
@@ -214,6 +232,7 @@
 		const model = mmProjSelectorModel;
 		if (!model) return;
 		mmProjSelectorModel = null;
+		loadModalModel = null;
 		loadingModels = new Set([...loadingModels, model.filename]);
 		localError = '';
 		localSuccess = '';
@@ -276,7 +295,7 @@
 					.filter((wm: any) => baseIds.has(wm.id) || localIds.has(wm.id))
 					.map((wm: any) => wm.id)
 			]);
-			adminModels = [...validIds]
+			let newAdminModels = [...validIds]
 				.map((id: string) => {
 					const base = baseModels.find((m: any) => m.id === id);
 					const wm = workspaceModels.find((m: any) => m.id === id);
@@ -290,9 +309,9 @@
 			// Synthetic entries for GGUF files on disk not yet registered in the DB.
 			// Without this, brand-new files show only the "Carregar" button and
 			// never get the edit pencil, "..." menu, or toggle controls.
-			const registeredIds = new Set(adminModels.map((m: any) => m.id));
-			adminModels = [
-				...adminModels,
+			const registeredIds = new Set(newAdminModels.map((m: any) => m.id));
+			newAdminModels = [
+				...newAdminModels,
 				...localModels
 					.filter((gm) => gm.id && !registeredIds.has(gm.id))
 					.map((gm) => ({
@@ -303,6 +322,7 @@
 						is_active: true,
 					}))
 			];
+			adminModels = newAdminModels;
 		} catch (e) {
 			console.error('[UnifiedModels] initAdmin error:', e);
 			if (adminModels.length === 0) adminModels = baseModels ?? [];
@@ -325,7 +345,9 @@
 			}).catch(() => null);
 			if (res && showToast) toast.success($i18n.t('Model updated successfully'));
 		}
-		await initAdmin();
+		if (showToast) {
+			await initAdmin();
+		}
 		_models.set(
 			await getModels(
 				localStorage.token,
@@ -414,7 +436,7 @@
 
 		// Auto-refresh: poll for new GGUF files every 3 seconds
 		const pollInterval = setInterval(async () => {
-			await refreshLocalModels();
+			await refreshLocalModels(false);
 			await initAdmin();
 		}, 3000);
 
@@ -447,105 +469,79 @@
 	});
 </script>
 
-<!-- ─── Vision confirmation overlay ──────────────────────────────────────── -->
-{#if confirmVisionCallback}
-	<div class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-		<div class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-xl mx-4 w-72 flex flex-col gap-3">
-			<div class="flex items-center gap-2">
-				<div class="size-8 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
-					<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
-					</svg>
-				</div>
-				<p class="text-sm font-semibold text-gray-900 dark:text-white">Deseja carregar a visão?</p>
-			</div>
-			<p class="text-xs text-gray-500 dark:text-gray-400">O modelo será carregado com suporte a análise de imagens.</p>
-			<div class="flex justify-end gap-2 mt-1">
-				<button
-					class="px-4 py-1.5 text-xs rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium"
-					on:click={() => { const cb = confirmVisionCallback; confirmVisionCallback = null; cb?.onNo(); }}
-				>Não</button>
-				<button
-					class="px-4 py-1.5 text-xs rounded-xl bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
-					on:click={() => { const cb = confirmVisionCallback; confirmVisionCallback = null; cb?.onYes(); }}
-				>Sim</button>
-			</div>
-		</div>
-	</div>
-{/if}
-
-<!-- ─── mmproj selector overlay ──────────────────────────────────────────── -->
-{#if mmProjSelectorModel}
-	<div class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+<!-- ─── Unified load modal ──────────────────────────────────────────────── -->
+{#if loadModalModel}
+	<div class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40" in:fade={{ duration: 80 }} out:fade={{ duration: 60 }}>
 		<div class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-xl mx-4 w-80 flex flex-col gap-3">
-			<p class="text-sm font-semibold text-gray-900 dark:text-white">Selecionar módulo de visão</p>
-			<div class="flex flex-col gap-1.5 max-h-80 overflow-y-auto scrollbar-none">
-				{#each mmProjFiles as f}
-					<button
-						class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-left transition {mmProjSelectedFile === f ? 'bg-black text-white dark:bg-white dark:text-black font-medium' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
-						on:click={() => (mmProjSelectedFile = f)}
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
-						</svg>
-						{f}
-					</button>
-				{/each}
-			</div>
-			<div class="flex justify-end gap-2">
-				<button
-					class="px-4 py-1.5 text-xs rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-					on:click={() => (mmProjSelectorModel = null)}
-				>Cancelar</button>
-				<button
-					class="px-4 py-1.5 text-xs rounded-xl bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium disabled:opacity-40"
-					disabled={!mmProjSelectedFile}
-					on:click={handleLoadWithSelectedMmproj}
-				>Carregar</button>
-			</div>
-		</div>
-	</div>
-{/if}
 
-<!-- ─── Context size overlay ──────────────────────────────────────────────── -->
-{#if contextModalModel}
-	<div class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-		<div class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-xl mx-4 w-80 flex flex-col gap-3">
-			<div class="flex items-center gap-2">
-				<div class="size-8 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-					<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-					</svg>
-				</div>
+			{#if loadModalStep === 'context'}
 				<p class="text-sm font-semibold text-gray-900 dark:text-white">Tamanho do Contexto</p>
-			</div>
-			<p class="text-xs text-gray-500 dark:text-gray-400">
-				Selecione o tamanho do contexto em tokens para
-				<span class="font-medium text-gray-700 dark:text-gray-300">{contextModalModel.filename.replace('.gguf', '')}</span>
-			</p>
-			<div class="flex flex-col gap-1.5 max-h-72 overflow-y-auto scrollbar-none">
-				{#each [2048, 4096, 8192, 16384, 32768, 65536] as sz}
+				<div class="flex flex-col gap-1.5 max-h-72 overflow-y-auto scrollbar-none">
+					{#each [2048, 4096, 8192, 16384, 32768, 65536] as sz}
+						<button
+							class="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-left transition {contextModalSize === sz ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+							on:click={() => (contextModalSize = sz)}
+						>
+							<span>{sz.toLocaleString()} tokens</span>
+							{#if sz === 8192}
+								<span class="text-[10px] opacity-60">(padrão)</span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+				<div class="flex justify-end gap-2 mt-1">
 					<button
-						class="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition {contextModalSize === sz ? 'bg-black text-white dark:bg-white dark:text-black font-medium' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
-						on:click={() => (contextModalSize = sz)}
-					>
-						<span>{sz.toLocaleString()} tokens</span>
-						{#if sz === 8192}
-							<span class="text-[10px] opacity-60">(padrão)</span>
-						{/if}
-					</button>
-				{/each}
-			</div>
-			<div class="flex justify-end gap-2 mt-1">
-				<button
-					class="px-4 py-1.5 text-xs rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium"
-					on:click={() => (contextModalModel = null)}
-				>Cancelar</button>
-				<button
-					class="px-4 py-1.5 text-xs rounded-xl bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
-					on:click={confirmContextAndProceed}
-				>Confirmar</button>
-			</div>
+						class="px-4 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium"
+						on:click={() => (loadModalModel = null)}
+					>Cancelar</button>
+					<button
+						class="px-4 py-1.5 text-xs rounded-lg bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
+						on:click={confirmContextAndProceed}
+					>Confirmar</button>
+				</div>
+
+			{:else if loadModalStep === 'vision'}
+				<p class="text-sm font-semibold text-gray-900 dark:text-white">Deseja carregar a visão?</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400">O modelo será carregado com suporte a análise de imagens.</p>
+				<div class="flex justify-end gap-2 mt-1">
+					<button
+						class="px-4 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium"
+						on:click={handleVisionNo}
+					>Não</button>
+					<button
+						class="px-4 py-1.5 text-xs rounded-lg bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
+						on:click={handleVisionYes}
+					>Sim</button>
+				</div>
+
+			{:else if loadModalStep === 'mmproj'}
+				<p class="text-sm font-semibold text-gray-900 dark:text-white">Selecionar módulo de visão</p>
+				<div class="flex flex-col gap-1.5 max-h-80 overflow-y-auto scrollbar-none">
+					{#each mmProjFiles as f}
+						<button
+							class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition {mmProjSelectedFile === f ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+							on:click={() => (mmProjSelectedFile = f)}
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
+							</svg>
+							{f}
+						</button>
+					{/each}
+				</div>
+				<div class="flex justify-end gap-2">
+					<button
+						class="px-4 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+						on:click={() => (loadModalModel = null)}
+					>Cancelar</button>
+					<button
+						class="px-4 py-1.5 text-xs rounded-lg bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium disabled:opacity-40"
+						disabled={!mmProjSelectedFile}
+						on:click={handleLoadWithSelectedMmproj}
+					>Carregar</button>
+				</div>
+			{/if}
+
 		</div>
 	</div>
 {/if}
@@ -561,9 +557,6 @@
 			<div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
 				<div class="flex items-center gap-2 text-xl font-medium px-0.5">
 					<span>Modelos</span>
-					<span class="text-lg font-medium text-gray-500 dark:text-gray-500">
-					{mergedModels.length}
-					</span>
 				</div>
 
 				<div class="flex items-center gap-1.5">
@@ -601,7 +594,7 @@
 						/>
 
 						<button
-							class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 dark:text-gray-200 transition"
+							class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 dark:text-gray-200 transition"
 							disabled={modelsImportInProgress}
 							on:click={() => modelsImportInputElement.click()}
 						>
@@ -612,7 +605,7 @@
 						</button>
 
 						<button
-							class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 dark:text-gray-200 transition"
+							class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 dark:text-gray-200 transition"
 							on:click={() => {
 								const blob = new Blob([JSON.stringify(adminModels)], { type: 'application/json' });
 								saveAs(blob, `models-export-${Date.now()}.json`);
@@ -623,7 +616,7 @@
 					{/if}
 
 					<button
-						class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-xl bg-black hover:bg-gray-900 text-white dark:bg-white dark:hover:bg-gray-100 dark:text-black transition font-medium"
+						class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-lg bg-black hover:bg-gray-900 text-white dark:bg-white dark:hover:bg-gray-100 dark:text-black transition font-medium"
 						type="button"
 						on:click={() => (showConfigModal = true)}
 					>
@@ -634,7 +627,7 @@
 
 			<!-- Scrollable list -->
 			<div class="overflow-y-auto flex-1 min-h-0 px-3.5 pb-4">
-				<div class="py-2 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100/30 dark:border-gray-850/30">
+				<div class="py-2 bg-white dark:bg-gray-900 rounded-3xl">
 
 					<!-- Search bar -->
 					<div class="px-3.5 flex flex-1 items-center w-full space-x-2 py-0.5 pb-2">
@@ -662,13 +655,7 @@
 
 					<!-- ─── UNIFIED MODEL LIST ──────────────────────────────────── -->
 					{#if localLoading && localModels.length === 0 && (adminModels?.length ?? 0) === 0}
-						<div class="flex items-center justify-center py-8 text-gray-400 text-sm">
-							<svg class="w-4 h-4 animate-spin mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-							</svg>
-							Buscando modelos...
-						</div>
+						<div class="py-8"></div>
 					{:else if mergedModels.length === 0}
 						<div class="w-full flex flex-col justify-center items-center my-12 mb-20">
 							<div class="max-w-md text-center">
@@ -687,18 +674,39 @@
 								class="flex w-full px-3 py-0.5 {(am?.meta?.hidden || (am && !(am?.is_active ?? true))) ? 'opacity-50' : ''}"
 								id={am ? `model-item-${am.id}` : undefined}
 							>
-								<div class="flex gap-3 w-full px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-850/50 rounded-2xl transition">
+								<div
+								class="flex gap-3 w-full px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-850/50 rounded-2xl transition cursor-pointer"
+							on:click={(e) => {
+								if (am && (am?.is_active ?? true) && !(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('[data-melt-dropdown-menu]')) {
+									selectedModelId = am.id;
+								}
+							}}
+						>
 
-									<!-- Avatar -->
-									<div class="self-center flex-shrink-0">
+									<!-- Avatar with pin-on-hover -->
+									<div class="self-center flex-shrink-0 group/avatar relative">
 										{#if am}
 											<div class="w-9 h-9 rounded-full overflow-hidden {(am?.is_active ?? true) ? '' : 'opacity-50'}">
 												<img
 													src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${am.id}`}
 													alt="model"
-													class="w-full h-full object-cover"
+													class="w-full h-full object-cover group-hover/avatar:opacity-0 transition-opacity"
 												/>
 											</div>
+											{#if (am?.is_active ?? true)}
+												<button
+													class="absolute inset-0 w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+													type="button"
+													on:click|stopPropagation={() => pinModelHandler(am.id)}
+													title={($settings?.pinnedModels ?? []).includes(am.id) ? 'Desfixar' : 'Fixar'}
+												>
+													{#if ($settings?.pinnedModels ?? []).includes(am.id)}
+														<PinSlash />
+													{:else}
+														<Pin />
+													{/if}
+												</button>
+											{/if}
 										{:else}
 											<!-- GGUF not yet loaded/registered -->
 											<div class="size-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -711,20 +719,17 @@
 
 									<!-- Info -->
 									<div class="flex-1 min-w-0 self-center">
-										<div class="w-full text-left cursor-default">
+											<div class="w-full text-left">
 											<div class="flex items-center gap-1.5 flex-wrap">
 												<span class="font-medium text-sm line-clamp-1">
 													{am?.name ?? gm?.filename?.replace('.gguf', '') ?? ''}
 												</span>
-												{#if gm?.is_loaded && gm?.mmproj_filename}
-													<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium shrink-0">Visão</span>
-												{/if}
 											</div>
 											<div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5 flex items-center gap-2">
 												{#if gm}
 													<span>{gm.file_size_human}</span>
 													{#if gm.is_loaded && gm.n_gpu_layers !== null}
-														<span>GPU: {gm.n_gpu_layers === -1 ? 'Todas' : gm.n_gpu_layers} · CTX: {gm.n_ctx}</span>
+														<span>GPU: {gm.n_gpu_layers === -1 ? 'Todas' : gm.n_gpu_layers} · CTX: {gm.n_ctx}{#if gm?.mmproj_filename}&nbsp;· Visão{/if}</span>
 													{/if}
 												{:else if am}
 													<span class="line-clamp-1">
@@ -741,9 +746,8 @@
 
 									<!-- Actions -->
 									<div class="flex items-center gap-0.5 flex-shrink-0 self-center">
-
 										<!-- GGUF load/unload controls -->
-										{#if gm}
+										{#if gm && (am?.is_active ?? true)}
 											{#if isProcessing}
 												<div class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500">
 													<svg class="w-3 h-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -753,41 +757,27 @@
 													Processando...
 												</div>
 											{:else if gm.is_loaded}
-												{#if mmProjFiles.length > 0}
-														<Tooltip content={gm.mmproj_filename ? 'Trocar visão' : 'Adicionar visão'}>
-															<button
-																class="flex items-center justify-center p-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-gray-600 dark:text-gray-400"
-																on:click={() => openVisionSelector(gm)}
-															>
-																<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-																	<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
-																</svg>
-															</button>
-														</Tooltip>
-												{/if}
+
 												<button
-													class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition text-gray-600 dark:text-gray-400"
+													class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-black/5 dark:hover:bg-white/5 transition text-gray-600 dark:text-gray-400"
 													on:click={() => handleUnload(gm)}
 												>
-													<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-													</svg>
 													Descarregar
 												</button>
 											{:else}
 												<button
-													class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-xl bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
+													class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-black/5 dark:hover:bg-white/5 transition text-gray-600 dark:text-gray-400"
 													on:click={() => startLoadWithContextModal(gm)}
 												>
-													<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-													</svg>
 													Carregar
 												</button>
 											{/if}
 										{/if}
+
+
+
 									<!-- separator entre controles GGUF e admin -->
-									{#if gm && am}<div class="w-3 flex-shrink-0"></div>{/if}
+									{#if gm && am}<div class="w-2 flex-shrink-0"></div>{/if}
 										<!-- Admin controls (only if model is registered in the system) -->
 										{#if am}
 											{#if shiftKey}
@@ -805,39 +795,27 @@
 													</button>
 												</Tooltip>
 											{:else}
-												<button
-													class="self-center w-fit text-sm px-2 py-2 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
-													type="button"
-													on:click={() => { selectedModelId = am.id; }}
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-														<path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-													</svg>
-												</button>
-
-												<ModelMenu
-													user={$user}
-													model={am}
-													exportHandler={() => exportModelHandler(am)}
-													pinModelHandler={() => pinModelHandler(am.id)}
-													onClose={() => {}}
-												>
-													<button
-														class="self-center w-fit text-sm p-1.5 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
-														type="button"
-													>
-														<EllipsisHorizontal className="size-5" />
-													</button>
-												</ModelMenu>
-
-															<div class="ml-1 {(gm && (gm.is_loaded || isProcessing)) ? 'pointer-events-none opacity-50' : ''}">
-													<Tooltip content={(am?.is_active ?? true) ? $i18n.t('Enabled') : $i18n.t('Disabled')}>
-														<Switch
-															bind:state={am.is_active}
-															on:change={async () => { toggleModelHandler(am); }}
-														/>
-													</Tooltip>
-												</div>
+												{#if !(gm && (gm.is_loaded || isProcessing))}
+													<div class="ml-1">
+														<Tooltip content={(am?.is_active ?? true) ? $i18n.t('Enabled') : $i18n.t('Disabled')}>
+															<button
+																type="button"
+																class="flex h-[1.125rem] min-h-[1.125rem] w-8 shrink-0 cursor-pointer items-center rounded-full px-[2px] mx-[1px] transition-colors outline outline-1 outline-gray-100 dark:outline-gray-800 {(am?.is_active ?? true) ? 'bg-emerald-500 dark:bg-emerald-700' : 'bg-gray-200 dark:bg-transparent'}"
+																on:click|stopPropagation={() => {
+																	const newActive = !(am.is_active ?? true);
+																	adminModels = adminModels.map((m) =>
+																		m.id === am.id ? { ...m, is_active: newActive } : m
+																	);
+																	toggleModelHandler({ ...am, is_active: newActive });
+																}}
+															>
+																<span
+																	class="pointer-events-none block size-3 shrink-0 rounded-full bg-white shadow-sm transition-transform {(am?.is_active ?? true) ? 'translate-x-4' : 'translate-x-0'}"
+																></span>
+															</button>
+														</Tooltip>
+													</div>
+												{/if}
 											{/if}
 										{/if}
 
@@ -857,14 +835,13 @@
 
 	{:else}
 		<!-- ─── Model Editor ──────────────────────────────────────────────── -->
-		<div style="height: 60vh; min-height: 0; width: 100%; display: flex; flex-direction: column; overflow: hidden; padding: 1rem 1rem 1rem;">
+		<div style="height: 60vh; min-height: 0; width: 100%; display: flex; flex-direction: column; overflow: hidden; padding: 1rem 2.5rem 1rem;">
 			<ModelEditor
 				edit
 				model={adminModels?.find((m) => m.id === selectedModelId)}
 				preset={false}
 				onSubmit={async (model) => {
-					await upsertModelHandler(model);
-					selectedModelId = null;
+					await upsertModelHandler(model, false);
 				}}
 				onBack={async () => {
 					selectedModelId = null;
@@ -878,9 +855,5 @@
 	<!-- Loading admin models — focus-trap needs at least one tabbable node -->
 	<div class="flex items-center justify-center py-16 px-8">
 		<button class="sr-only" tabindex="0" aria-hidden="true"> </button>
-		<svg class="w-6 h-6 animate-spin text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-			<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-			<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-		</svg>
 	</div>
 {/if}

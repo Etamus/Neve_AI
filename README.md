@@ -44,9 +44,9 @@ O instalador (`instalar.bat` → `instalar.ps1`) realiza automaticamente:
 
 1. **Detecta a GPU** — NVIDIA (identifica a série e configura CUDA), AMD (HIP/ROCm ou Vulkan) ou CPU
 2. **Baixa o llama.cpp** mais recente do GitHub (binários compilados para o hardware detectado)
-3. **Cria o ambiente virtual Python** (`backend/open_webui/venv/`) e instala todas as dependências (PyTorch, FastAPI, ChromaDB, Whisper, etc.)
+3. **Cria o ambiente virtual Python** (`backend/neveai/venv/`) e instala todas as dependências (PyTorch, FastAPI, ChromaDB, Whisper, etc.)
 4. **Instala as dependências Node.js** (`npm install`)
-5. **Compila e faz deploy do frontend** (`npm run build` + cópia para `backend/open_webui/frontend/`)
+5. **Compila e faz deploy do frontend** (`npm run build` + cópia para `backend/neveai/frontend/`)
 6. **Cria as pastas necessárias** (`models/`, `mmproj/`, `backend/data/`, `logs/`)
 7. **Cria o arquivo `.env`** com configurações padrão (se ainda não existir)
 
@@ -220,7 +220,7 @@ Copy-Item -Path "build\*" -Destination "backend\neveai\frontend" -Recurse -Force
 ```powershell
 # Terminal 1 — Backend
 cd "d:\Neve AI\backend"
-..\backend\neveai\venv\Scripts\python -m uvicorn open_webui.main:app --host 0.0.0.0 --port 8080 --reload
+..\backend\neveai\venv\Scripts\python -m uvicorn neveai.main:app --host 0.0.0.0 --port 8080 --reload
 
 # Terminal 2 — Frontend
 cd "d:\Neve AI"

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { models, showSettings, settings, user, mobile, config } from '$lib/stores';
+	import { models, showSettings, settings, user, mobile, config, showModelSettings } from '$lib/stores';
 	import { onMount, tick, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import Selector from './ModelSelector/Selector.svelte';
@@ -39,8 +39,8 @@
 
 <div class="flex flex-col w-full items-start">
 	{#each selectedModels as selectedModel, selectedModelIdx}
-		<div class="flex w-full max-w-fit">
-			<div class="overflow-hidden w-full">
+		<div class="flex items-center w-full max-w-fit">
+			<div class="overflow-hidden flex-1 min-w-0">
 				<div class="max-w-full {($settings?.highContrastMode ?? false) ? 'm-1' : 'mr-1'}">
 					<Selector
 						id={`${selectedModelIdx}`}
@@ -51,6 +51,7 @@
 							model: model
 						}))}
 						{pinModelHandler}
+						onGearClick={selectedModelIdx === 0 && selectedModel && !disabled ? () => showModelSettings.set(true) : null}
 						bind:value={selectedModel}
 					/>
 				</div>

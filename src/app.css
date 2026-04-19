@@ -1,22 +1,6 @@
 @reference "./tailwind.css";
 
 @font-face {
-	font-family: 'Geist';
-	src: url('/assets/fonts/Geist-Variable.woff2') format('woff2');
-	font-weight: 100 900;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: 'Geist Mono';
-	src: url('/assets/fonts/GeistMono-Variable.woff2') format('woff2');
-	font-weight: 100 900;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
 	font-family: 'Vazirmatn';
 	src: url('/assets/fonts/Vazirmatn-Variable.ttf');
 	font-display: swap;
@@ -63,7 +47,7 @@ code {
 }
 
 .font-secondary {
-	font-family: 'Geist', sans-serif;
+	font-family: 'Segoe UI', sans-serif;
 }
 
 .marked a {
@@ -75,7 +59,26 @@ math {
 }
 
 .hljs {
-	@apply rounded-lg;
+	@apply rounded-none;
+}
+
+html:not(.dark) .hljs {
+	background-color: #f8f9fa !important;
+	color: #24292e !important;
+}
+
+html.dark .hljs {
+	background-color: #1a1a1a !important;
+}
+
+html:not(.dark) .cm-editor,
+html:not(.dark) .cm-editor .cm-scroller {
+	background-color: #f3f4f6 !important;
+}
+
+html:not(.dark) .cm-gutters {
+	background-color: #ebedf0 !important;
+	border-right-color: #d1d5db !important;
 }
 
 input::placeholder {
@@ -99,8 +102,8 @@ textarea::placeholder {
 }
 
 .markdown-prose {
-	@apply prose dark:prose-invert prose-blockquote:border-s-gray-100 prose-blockquote:dark:border-gray-800 prose-blockquote:border-s-2 prose-blockquote:not-italic prose-blockquote:font-normal  prose-headings:font-semibold prose-hr:my-4 prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-3 prose-img:my-1 prose-headings:my-3 prose-pre:my-0 prose-table:my-2 prose-blockquote:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 whitespace-pre-line;
-	line-height: 1.75;
+	@apply prose dark:prose-invert prose-blockquote:border-s-gray-100 prose-blockquote:dark:border-gray-800 prose-blockquote:border-s-2 prose-blockquote:not-italic prose-blockquote:font-normal  prose-headings:font-semibold prose-hr:my-4 prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-2 prose-img:my-1 prose-headings:mb-2 prose-headings:mt-5 prose-pre:my-0 prose-table:my-2 prose-blockquote:my-2 prose-ul:my-3 prose-ol:my-3 prose-li:my-1.5 whitespace-pre-line;
+	line-height: 1.68;
 	font-size: 0.9rem;
 	letter-spacing: -0.011em;
 	font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
@@ -137,7 +140,7 @@ textarea::placeholder {
 }
 
 .font-primary {
-	font-family: 'Geist', 'Vazirmatn', sans-serif;
+	font-family: 'Segoe UI', 'Vazirmatn', sans-serif;
 }
 
 .drag-region {
@@ -364,6 +367,16 @@ input[type='range']::-moz-range-thumb {
 	@apply !bg-white dark:!bg-black !border-none;
 }
 
+.cm-foldGutter {
+	display: none !important;
+	width: 0 !important;
+	min-width: 0 !important;
+}
+
+.cm-foldGutter .cm-gutterElement {
+	display: none !important;
+}
+
 .cm-editor {
 	@apply bg-white dark:bg-black;
 }
@@ -377,9 +390,9 @@ input[type='range']::-moz-range-thumb {
 }
 
 .codespan {
-	padding: 0.15rem 0.3rem;
-	font-size: 0.85em;
-	@apply font-mono rounded-md text-gray-800 bg-gray-100 dark:text-gray-200 dark:bg-gray-800 mx-0.5;
+	padding: 0.15rem 0.4rem;
+	font-size: 0.84em;
+	@apply font-mono rounded text-gray-800 bg-gray-100 dark:text-gray-300 dark:bg-[#2a2a2a] mx-0.5 border border-gray-200/60 dark:border-gray-700/50;
 }
 
 .svelte-flow {
@@ -602,7 +615,7 @@ input[type='range']::-moz-range-thumb {
 
 .tiptap pre {
 	border-radius: 0.5rem;
-	font-family: 'Geist Mono', monospace;
+	font-family: 'Segoe UI', monospace;
 	margin: 1.5rem 0;
 	padding: 0.75rem 1rem;
 
@@ -618,7 +631,7 @@ input[type='range']::-moz-range-thumb {
 /* Code styling */
 .hljs-comment,
 .hljs-quote {
-	color: #616161;
+	color: #6a737d;
 }
 
 .hljs-variable,
@@ -630,7 +643,7 @@ input[type='range']::-moz-range-thumb {
 .hljs-name,
 .hljs-selector-id,
 .hljs-selector-class {
-	color: #f98181;
+	color: #e06c75;
 }
 
 .hljs-number,
@@ -640,23 +653,23 @@ input[type='range']::-moz-range-thumb {
 .hljs-literal,
 .hljs-type,
 .hljs-params {
-	color: #fbbc88;
+	color: #d19a66;
 }
 
 .hljs-string,
 .hljs-symbol,
 .hljs-bullet {
-	color: #b9f18d;
+	color: #98c379;
 }
 
 .hljs-title,
 .hljs-section {
-	color: #faf594;
+	color: #e5c07b;
 }
 
 .hljs-keyword,
 .hljs-selector-tag {
-	color: #70cff8;
+	color: #61afef;
 }
 
 .hljs-emphasis {
@@ -732,7 +745,7 @@ body {
 }
 
 .dark body {
-	background: #171717;
+	background: #000000;
 	color: #eee;
 }
 

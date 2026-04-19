@@ -15,12 +15,10 @@
 
 	// Addons
 	let enableMemory = false;
-	let chatBubble = true;
 	let showUsername = false;
 
 	onMount(async () => {
 		enableMemory = $settings?.memory ?? false;
-		chatBubble = $settings?.chatBubble ?? true;
 		showUsername = $settings?.showUsername ?? false;
 	});
 </script>
@@ -82,7 +80,7 @@
 		<div class="mt-3 mb-1 ml-1">
 			<button
 				type="button"
-				class="text-xs px-3 py-1 font-medium hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-gray-300 dark:outline-gray-800 rounded-3xl"
+				class="text-xs px-4 py-1.5 font-medium bg-transparent border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition rounded-lg"
 				on:click={() => {
 					showManageModal = true;
 				}}
@@ -91,55 +89,8 @@
 			</button>
 		</div>
 
-		<hr class="my-3 border-gray-100 dark:border-gray-800" />
 
-		<div>
-			<div class=" py-0.5 flex w-full justify-between">
-				<div id="chat-bubble-ui-label" class=" self-center text-xs">
-					{$i18n.t('Chat Bubble UI')}
-				</div>
 
-				<div class="flex items-center gap-2 p-1">
-					<Switch
-						tooltip={true}
-						ariaLabelledbyId="chat-bubble-ui-label"
-						bind:state={chatBubble}
-						on:change={() => {
-							saveSettings({ chatBubble });
-						}}
-					/>
-				</div>
-			</div>
-		</div>
-
-		{#if !chatBubble}
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div id="chat-bubble-username-label" class=" self-center text-xs">
-						{$i18n.t('Display the username instead of You in the Chat')}
-					</div>
-
-					<div class="flex items-center gap-2 p-1">
-						<Switch
-							ariaLabelledbyId="chat-bubble-username-label"
-							tooltip={true}
-							bind:state={showUsername}
-							on:change={() => {
-								saveSettings({ showUsername });
-							}}
-						/>
-					</div>
-				</div>
-			</div>
-		{/if}
 	</div>
 
-	<div class="flex justify-end text-sm font-medium">
-		<button
-			class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full"
-			type="submit"
-		>
-			{$i18n.t('Save')}
-		</button>
-	</div>
 </form>

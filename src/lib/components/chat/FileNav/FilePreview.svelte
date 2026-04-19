@@ -570,7 +570,7 @@
 	:global(.office-preview table) {
 		border-collapse: collapse;
 		font-size: 0.75rem;
-		font-family: 'Geist Mono', monospace;
+			font-family: 'Segoe UI', monospace;
 		line-height: 1.3;
 	}
 	:global(.office-preview table td),

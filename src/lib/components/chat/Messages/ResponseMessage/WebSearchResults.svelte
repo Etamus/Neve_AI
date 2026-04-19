@@ -1,141 +1,141 @@
 <script lang="ts">
-	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
-	import ChevronUp from '$lib/components/icons/ChevronUp.svelte';
-	import Search from '$lib/components/icons/Search.svelte';
-	import Collapsible from '$lib/components/common/Collapsible.svelte';
+	import { getContext, onMount } from 'svelte';
+	const i18n = getContext('i18n');
 
-	export let status = { urls: [], query: '' };
-	let state = false;
+	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
+	import GlobeAlt from '$lib/components/icons/GlobeAlt.svelte';
+
+	import { slide } from 'svelte/transition';
+	import { quintOut } from 'svelte/easing';
+
+	export let status: any = { urls: [], query: '' };
+	export let done: boolean = false;
+
+	let open = false;
+	let expanded = false;
+	let maxVisible = 8;
+
+	// Extract domain from URL
+	function extractDomain(url: string): string {
+		try {
+			return new URL(url).hostname.replace(/^www\./, '');
+		} catch {
+			return url;
+		}
+	}
+
+	// Get items list (items take priority over urls)
+	$: items = status?.items
+		? status.items.map((item: any) => ({
+				url: item.link,
+				title: item.title || extractDomain(item.link)
+			}))
+		: status?.urls
+			? status.urls.map((url: string) => ({
+					url,
+					title: extractDomain(url)
+				}))
+			: [];
+
+	$: isSearching = !done && !status?.done;
+
+	// Auto-open while searching, auto-close when done
+	$: if (isSearching && items.length > 0) {
+		open = true;
+	}
+
+	$: visibleItems = expanded ? items : items.slice(0, maxVisible);
+	$: hiddenCount = items.length - maxVisible;
 </script>
 
-<Collapsible grow={true} className="w-full" buttonClassName="w-full" bind:open={state}>
-	<div class="flex items-center gap-2 text-gray-500 transition">
-		<slot />
-		{#if state}
-			<ChevronUp strokeWidth="2.5" className="size-3.5 " />
-		{:else}
-			<ChevronDown strokeWidth="2.5" className="size-3.5 " />
-		{/if}
-	</div>
-
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- svelte-ignore a11y-click-events-have-key-events -->
+<div class="web-search-block w-full py-1">
+	<!-- Trigger -->
 	<div
-		class="text-sm border border-gray-50 dark:border-gray-850/30 rounded-xl my-1.5 p-2 w-full"
-		slot="content"
+		class="flex items-center gap-2 cursor-pointer group/ws-trigger"
+		on:pointerup|stopPropagation={() => {
+			open = !open;
+		}}
+		on:click|stopPropagation
 	>
-		{#if status?.query}
-			<a
-				href="https://www.google.com/search?q={status.query}"
-				target="_blank"
-				class="flex w-full items-center p-1 px-3 group/item justify-between text-gray-800 dark:text-gray-300 font-normal! no-underline!"
-			>
-				<div class="flex gap-2 items-center">
-					<Search />
+		<div
+			class="flex min-w-0 flex-1 items-center gap-2 py-0.5 text-sm text-gray-500 dark:text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+		>
+			<GlobeAlt className="size-4 shrink-0" strokeWidth="1.5" />
 
-					<div class=" line-clamp-1">
-						{status.query}
-					</div>
-				</div>
+			<span class="relative inline-block leading-none">
+				{#if isSearching}
+					<span class="shimmer text-sm">
+						{#if status?.query}
+							{$i18n.t('Searching for "{{query}}"', { query: status.query })}
+						{:else}
+							{$i18n.t('Searching the web...')}
+						{/if}
+					</span>
+				{:else}
+					<slot />
+				{/if}
+			</span>
 
-				<div
-					class=" ml-1 text-white dark:text-gray-900 group-hover/item:text-gray-600 dark:group-hover/item:text-white transition"
-				>
-					<!--  -->
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 16 16"
-						fill="currentColor"
-						class="size-4"
-					>
-						<path
-							fill-rule="evenodd"
-							d="M4.22 11.78a.75.75 0 0 1 0-1.06L9.44 5.5H5.75a.75.75 0 0 1 0-1.5h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V6.56l-5.22 5.22a.75.75 0 0 1-1.06 0Z"
-							clip-rule="evenodd"
-						/>
-					</svg>
-				</div>
-			</a>
-		{/if}
-
-		{#if status?.items}
-			{#each status.items as item, itemIdx}
-				<a
-					href={item.link}
-					target="_blank"
-					class="flex w-full items-center p-1 px-3 group/item justify-between text-gray-800 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-850 rounded-lg font-normal! no-underline! mb-1"
-				>
-					<div class=" flex justify-center items-center gap-3">
-						<div class="w-fit">
-							<img
-								src="https://www.google.com/s2/favicons?sz=32&domain={item.link}"
-								alt="{item?.title ?? item.link} favicon"
-								class="size-3.5"
-							/>
-						</div>
-
-						<div class="w-full text-sm line-clamp-1">
-							{item?.title ?? item.link}
-						</div>
-					</div>
-
-					<div
-						class=" ml-1 text-white dark:text-gray-900 group-hover/item:text-gray-600 dark:group-hover/item:text-white transition"
-					>
-						<!--  -->
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="size-4"
-						>
-							<path
-								fill-rule="evenodd"
-								d="M4.22 11.78a.75.75 0 0 1 0-1.06L9.44 5.5H5.75a.75.75 0 0 1 0-1.5h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V6.56l-5.22 5.22a.75.75 0 0 1-1.06 0Z"
-								clip-rule="evenodd"
-							/>
-						</svg>
-					</div>
-				</a>
-			{/each}
-		{:else if status?.urls}
-			{#each status.urls as url, urlIdx}
-				<a
-					href={url}
-					target="_blank"
-					class="flex w-full items-center p-1 px-3 group/item justify-between text-gray-800 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-850 rounded-lg no-underline mb-1"
-				>
-					<div class=" flex justify-center items-center gap-3">
-						<div class="w-fit">
-							<img
-								src="https://www.google.com/s2/favicons?sz=32&domain={url}"
-								alt="{url} favicon"
-								class="size-3.5"
-							/>
-						</div>
-
-						<div class="w-full text-sm line-clamp-1">
-							{url}
-						</div>
-					</div>
-
-					<div
-						class=" ml-1 text-white dark:text-gray-900 group-hover/item:text-gray-600 dark:group-hover/item:text-white transition"
-					>
-						<!--  -->
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							class="size-4"
-						>
-							<path
-								fill-rule="evenodd"
-								d="M4.22 11.78a.75.75 0 0 1 0-1.06L9.44 5.5H5.75a.75.75 0 0 1 0-1.5h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V6.56l-5.22 5.22a.75.75 0 0 1-1.06 0Z"
-								clip-rule="evenodd"
-							/>
-						</svg>
-					</div>
-				</a>
-			{/each}
-		{/if}
+			<ChevronDown
+				strokeWidth="2.5"
+				className="size-3.5 shrink-0 transition-transform duration-200 {open
+					? 'rotate-0'
+					: '-rotate-90'}"
+			/>
+		</div>
 	</div>
-</Collapsible>
+
+	<!-- Results content -->
+	{#if open && items.length > 0}
+		<div
+			class="mt-1.5 pl-6"
+			transition:slide={{ duration: 200, easing: quintOut, axis: 'y' }}
+		>
+			<div class="flex flex-wrap gap-1.5">
+				{#each visibleItems as item}
+					<a
+						href={item.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-gray-700 dark:text-gray-300 no-underline! font-normal! transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600"
+						title={item.url}
+					>
+						<img
+							src="https://www.google.com/s2/favicons?sz=32&domain={item.url}"
+							alt=""
+							class="size-3 shrink-0 rounded-sm"
+							on:error={(e) => {
+								e.currentTarget.style.display = 'none';
+							}}
+						/>
+						<span class="max-w-[150px] truncate">{item.title}</span>
+					</a>
+				{/each}
+
+				{#if !expanded && hiddenCount > 0}
+					<button
+						class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700/60 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+						on:pointerup|stopPropagation={() => {
+							expanded = true;
+						}}
+					>
+						+{hiddenCount} mais
+					</button>
+				{/if}
+
+				{#if expanded && hiddenCount > 0}
+					<button
+						class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700/60 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+						on:pointerup|stopPropagation={() => {
+							expanded = false;
+						}}
+					>
+						Mostrar menos
+					</button>
+				{/if}
+			</div>
+		</div>
+	{/if}
+</div>

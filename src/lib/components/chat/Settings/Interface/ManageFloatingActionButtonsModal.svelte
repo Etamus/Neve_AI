@@ -163,8 +163,6 @@
 										<Minus className="h-4 w-4" />
 									</button>
 								</div>
-
-								<hr class="border-gray-50 dark:border-gray-850/30 my-2" />
 							{/each}
 						{/if}
 					</div>

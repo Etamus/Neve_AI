@@ -1,8 +1,7 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
 	import { getContext, onMount, tick } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { flyAndScale } from '$lib/utils/transitions';
+	import { fly, fade } from 'svelte/transition';
 
 	import { config, user, tools as _tools, mobile, toolServers } from '$lib/stores';
 
@@ -17,7 +16,6 @@
 	import ChatBubbleOval from '$lib/components/icons/ChatBubbleOval.svelte';
 	import Refresh from '$lib/components/icons/Refresh.svelte';
 	import Agile from '$lib/components/icons/Agile.svelte';
-	import ClockRotateRight from '$lib/components/icons/ClockRotateRight.svelte';
 	import ChevronRight from '$lib/components/icons/ChevronRight.svelte';
 	import ChevronLeft from '$lib/components/icons/ChevronLeft.svelte';
 	import PageEdit from '$lib/components/icons/PageEdit.svelte';
@@ -29,7 +27,6 @@
 	import Terminal from '$lib/components/icons/Terminal.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
-	import Chats from './InputMenu/Chats.svelte';
 	import Notes from './InputMenu/Notes.svelte';
 
 	import { createPicker } from '$lib/utils/google-drive-picker';
@@ -151,13 +148,13 @@
 
 	<div slot="content">
 		<DropdownMenu.Content
-			class="w-full max-w-70 rounded-2xl px-1 py-1  border border-gray-100  dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg max-h-72 overflow-y-auto overflow-x-hidden scrollbar-thin transition"
+			class="w-full max-w-70 rounded-md px-1 py-1 border border-gray-100 dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-md max-h-72 overflow-y-auto overflow-x-hidden scrollbar-thin"
 			style="font-family: 'Segoe UI', sans-serif;"
 			sideOffset={4}
 			alignOffset={-6}
 			side="bottom"
 			align="start"
-			transition={flyAndScale}
+			transition={(e) => fade(e, { duration: 100 })}
 		>
 			{#if tab === ''}
 				<div in:fly={{ x: -20, duration: 150 }}>
@@ -170,7 +167,7 @@
 						className="w-full"
 					>
 						<DropdownMenu.Item
-							class="flex gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl {!fileUploadEnabled
+							class="flex gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-sm {!fileUploadEnabled
 								? 'opacity-50'
 								: ''}"
 							on:click={() => {
@@ -195,7 +192,7 @@
 							className="w-full"
 						>
 							<button
-								class="flex gap-2 w-full items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl {!fileUploadEnabled
+								class="flex gap-2 w-full items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-sm {!fileUploadEnabled
 									? 'opacity-50'
 									: ''}"
 								on:click={() => {
@@ -217,39 +214,10 @@
 						</Tooltip>
 					{/if}
 
-					<Tooltip
-						content={fileUploadCapableModels.length !== selectedModels.length
-							? $i18n.t('Model(s) do not support file upload')
-							: !fileUploadEnabled
-								? $i18n.t('You do not have permission to upload files.')
-								: ''}
-						className="w-full"
-					>
-						<button
-							class="flex gap-2 w-full items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl {!fileUploadEnabled
-								? 'opacity-50'
-								: ''}"
-							on:click={() => {
-								tab = 'chats';
-							}}
-						>
-							<ClockRotateRight />
-
-							<div class="flex items-center w-full justify-between">
-							<div>
-								Anexar conversa
-							</div>
-								<div class="text-gray-500">
-									<ChevronRight />
-								</div>
-							</div>
-						</button>
-					</Tooltip>
-
 					{#if fileUploadEnabled}
 						{#if $config?.features?.enable_google_drive_integration}
 							<DropdownMenu.Item
-								class="flex gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl"
+								class="flex gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-sm"
 								on:click={() => {
 									uploadGoogleDriveHandler();
 								}}
@@ -286,7 +254,7 @@
 
 						{#if $config?.features?.enable_onedrive_integration && ($config?.features?.enable_onedrive_personal || $config?.features?.enable_onedrive_business)}
 							<button
-								class="flex gap-2 w-full items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl {!fileUploadEnabled
+								class="flex gap-2 w-full items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-sm {!fileUploadEnabled
 									? 'opacity-50'
 									: ''}"
 								on:click={() => {
@@ -399,7 +367,7 @@
 					{#if tools}
 						{#if Object.keys(tools).length > 0}
 							<button
-								class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
+								class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
 								on:click={() => { tab = 'tools'; }}
 							>
 								<Wrench />
@@ -420,7 +388,7 @@
 						{#each toggleFilters.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })) as filter (filter.id)}
 							<Tooltip content={filter?.description} placement="top-start">
 								<button
-									class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
+									class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
 									on:click={() => {
 										if (selectedFilterIds.includes(filter.id)) {
 											selectedFilterIds = selectedFilterIds.filter((id) => id !== filter.id);
@@ -462,7 +430,7 @@
 
 					{#if showWebSearchButton}
 						<Tooltip content={$i18n.t('Search the internet')} placement="top-start">
-							<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 {stableDiffusionEnabled ? 'opacity-40 pointer-events-none' : ''}" on:click={() => { webSearchEnabled = !webSearchEnabled; }}>
+							<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 {stableDiffusionEnabled || codeInterpreterEnabled || imageGenerationEnabled ? 'opacity-40 pointer-events-none' : ''}" on:click={() => { webSearchEnabled = !webSearchEnabled; if (webSearchEnabled) { codeInterpreterEnabled = false; imageGenerationEnabled = false; } }}>
 								<div class="flex-1 truncate">
 									<div class="flex flex-1 gap-2 items-center">
 										<div class="shrink-0"><GlobeAlt /></div>
@@ -476,7 +444,7 @@
 
 					{#if showImageGenerationButton}
 						<Tooltip content={$i18n.t('Generate an image')} placement="top-start">
-					<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 {stableDiffusionEnabled ? 'opacity-40 pointer-events-none' : ''}" on:click={() => { imageGenerationEnabled = !imageGenerationEnabled; }}>
+					<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 {stableDiffusionEnabled || webSearchEnabled || codeInterpreterEnabled || codeExecutionEnabled ? 'opacity-40 pointer-events-none' : ''}" on:click={() => { imageGenerationEnabled = !imageGenerationEnabled; if (imageGenerationEnabled) { webSearchEnabled = false; codeInterpreterEnabled = false; codeExecutionEnabled = false; } }}>
 								<div class="flex-1 truncate">
 									<div class="flex flex-1 gap-2 items-center">
 										<div class="shrink-0"><Photo className="size-4" strokeWidth="1.5" /></div>
@@ -490,7 +458,7 @@
 
 					{#if showCodeInterpreterButton}
 						<Tooltip content={$i18n.t('Execute code for analysis')} placement="top-start">
-							<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 {stableDiffusionEnabled ? 'opacity-40 pointer-events-none' : ''}" aria-pressed={codeInterpreterEnabled} on:click={() => { codeInterpreterEnabled = !codeInterpreterEnabled; }}>
+							<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 {stableDiffusionEnabled || webSearchEnabled || imageGenerationEnabled ? 'opacity-40 pointer-events-none' : ''}" aria-pressed={codeInterpreterEnabled} on:click={() => { codeInterpreterEnabled = !codeInterpreterEnabled; if (codeInterpreterEnabled) { webSearchEnabled = false; imageGenerationEnabled = false; } }}>
 								<div class="flex-1 truncate">
 									<div class="flex flex-1 gap-2 items-center">
 										<div class="shrink-0"><Terminal className="size-3.5" strokeWidth="1.75" /></div>
@@ -504,7 +472,7 @@
 
 					{#if showCodeExecutionButton}
 						<Tooltip content={$i18n.t('Gerar artefato de visualização')} placement="top-start">
-							<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 {stableDiffusionEnabled ? 'opacity-40 pointer-events-none' : ''}" aria-pressed={codeExecutionEnabled} on:click={() => { codeExecutionEnabled = !codeExecutionEnabled; }}>
+							<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 {stableDiffusionEnabled || imageGenerationEnabled ? 'opacity-40 pointer-events-none' : ''}" aria-pressed={codeExecutionEnabled} on:click={() => { codeExecutionEnabled = !codeExecutionEnabled; if (codeExecutionEnabled) { imageGenerationEnabled = false; } }}>
 								<div class="flex-1 truncate">
 									<div class="flex flex-1 gap-2 items-center">
 										<div class="shrink-0">
@@ -522,7 +490,7 @@
 
 					{#if showStableDiffusionButton}
 						<Tooltip content={$i18n.t('Gerar imagens localmente')} placement="top-start">
-							<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50" on:click={() => {
+<button class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 {webSearchEnabled || imageGenerationEnabled || codeInterpreterEnabled || codeExecutionEnabled ? 'opacity-40 pointer-events-none' : ''}" on:click={() => {
 							stableDiffusionEnabled = !stableDiffusionEnabled;
 							if (stableDiffusionEnabled) {
 								webSearchEnabled = false;
@@ -551,7 +519,7 @@
 			{:else if tab === 'tools' && tools}
 				<div in:fly={{ x: 20, duration: 150 }}>
 					<button
-						class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
+						class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
 						on:click={() => { tab = ''; }}
 					>
 						<ChevronLeft />
@@ -561,7 +529,7 @@
 					</button>
 					{#each Object.keys(tools) as toolId}
 						<button
-							class="relative flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
+							class="relative flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
 							on:click={async (e) => {
 								if (!(tools[toolId]?.authenticated ?? true)) {
 									e.preventDefault();
@@ -582,7 +550,7 @@
 							}}
 						>
 							{#if !(tools[toolId]?.authenticated ?? true)}
-								<div class="absolute inset-0 opacity-50 rounded-xl cursor-pointer z-10" />
+								<div class="absolute inset-0 opacity-50 rounded-sm cursor-pointer z-10" />
 							{/if}
 							<div class="flex-1 truncate">
 								<div class="flex flex-1 gap-2 items-center">
@@ -610,7 +578,7 @@
 			{:else if tab === 'notes'}
 				<div in:fly={{ x: 20, duration: 150 }}>
 					<button
-						class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
+						class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
 						on:click={() => {
 							tab = '';
 						}}
@@ -626,29 +594,10 @@
 
 					<Notes {onSelect} />
 				</div>
-			{:else if tab === 'chats'}
-				<div in:fly={{ x: 20, duration: 150 }}>
-					<button
-						class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
-						on:click={() => {
-							tab = '';
-						}}
-					>
-						<ChevronLeft />
-
-						<div class="flex items-center w-full justify-between">
-							<div>
-								{$i18n.t('Chats')}
-							</div>
-						</div>
-					</button>
-
-					<Chats {onSelect} />
-				</div>
 			{:else if tab === 'microsoft_onedrive'}
 				<div in:fly={{ x: 20, duration: 150 }}>
 					<button
-						class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
+						class="flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
 						on:click={() => {
 							tab = '';
 						}}
@@ -664,7 +613,7 @@
 
 					{#if $config?.features?.enable_onedrive_personal}
 						<DropdownMenu.Item
-							class="flex gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl text-left"
+							class="flex gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-sm text-left"
 							on:click={() => {
 								uploadOneDriveHandler('personal');
 							}}
@@ -677,7 +626,7 @@
 
 					{#if $config?.features?.enable_onedrive_business}
 						<DropdownMenu.Item
-							class="flex gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl text-left"
+							class="flex gap-2 items-center px-3 py-1.5 text-sm select-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-sm text-left"
 							on:click={() => {
 								uploadOneDriveHandler('organizations');
 							}}

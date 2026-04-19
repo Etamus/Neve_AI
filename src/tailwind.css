@@ -45,7 +45,7 @@
 @layer base {
 	html,
 	pre {
-		font-family: 'Geist', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+		font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
 	}
 
 	pre {

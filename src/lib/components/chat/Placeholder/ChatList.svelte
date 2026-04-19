@@ -119,34 +119,6 @@
 		{/if}
 
 		{#each chatList as chat, idx (chat.id)}
-			{#if (idx === 0 || (idx > 0 && chat.time_range !== chatList[idx - 1].time_range)) && chat?.time_range}
-				<div
-					class="w-full text-xs text-gray-500 dark:text-gray-500 font-medium {idx === 0
-						? ''
-						: 'pt-5'} pb-2 px-2"
-				>
-					{$i18n.t(chat.time_range)}
-					<!-- localisation keys for time_range to be recognized from the i18next parser (so they don't get automatically removed):
-							{$i18n.t('Today')}
-							{$i18n.t('Yesterday')}
-							{$i18n.t('Previous 7 days')}
-							{$i18n.t('Previous 30 days')}
-							{$i18n.t('January')}
-							{$i18n.t('February')}
-							{$i18n.t('March')}
-							{$i18n.t('April')}
-							{$i18n.t('May')}
-							{$i18n.t('June')}
-							{$i18n.t('July')}
-							{$i18n.t('August')}
-							{$i18n.t('September')}
-							{$i18n.t('October')}
-							{$i18n.t('November')}
-							{$i18n.t('December')}
-							-->
-				</div>
-			{/if}
-
 			<a
 				class=" w-full flex justify-between items-center rounded-lg text-sm py-2 px-3 hover:bg-gray-50 dark:hover:bg-gray-850"
 				draggable="false"

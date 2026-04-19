@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import { v4 as uuidv4 } from 'uuid';
 
@@ -93,8 +93,20 @@
 
 	let newFolderId = null;
 
-	$: if ($selectedFolder) {
-		initFolders();
+	let _prevSelectedFolderId: string | null = null;
+	$: {
+		const _sfId = $selectedFolder?.id ?? null;
+		if (_sfId !== _prevSelectedFolderId) {
+			_prevSelectedFolderId = _sfId;
+			if ($selectedFolder) {
+				initFolders();
+			}
+		} else if (_sfId && folders[_sfId]) {
+			const _cur = folders[_sfId];
+			if (_cur.meta !== $selectedFolder.meta || _cur.name !== $selectedFolder.name) {
+				folders[_sfId] = { ..._cur, meta: $selectedFolder.meta, name: $selectedFolder.name };
+			}
+		}
 	}
 
 	const initFolders = async () => {
@@ -703,7 +715,7 @@
 
 {#if !$mobile && !$showSidebar}
 	<div
-		class=" pt-[7px] pb-2 px-2 flex flex-col justify-between text-black dark:text-white hover:bg-gray-50/30 dark:hover:bg-gray-950/30 h-full z-10 transition-all border-e-[0.5px] border-gray-50 dark:border-gray-850/30"
+		class=" pt-[7px] pb-2 px-2 flex flex-col justify-between text-black dark:text-white bg-gray-50 dark:bg-gray-850 hover:bg-gray-50/30 dark:hover:bg-gray-800/30 h-full z-10 transition-all border-e-[0.5px] border-gray-50 dark:border-gray-850/30"
 		id="sidebar"
 	>
 		<button
@@ -718,19 +730,13 @@
 					placement="right"
 				>
 					<button
-						class="flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group {isWindows
+						class="flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group {isWindows
 							? 'cursor-pointer'
 							: 'cursor-[e-resize]'}"
 						aria-label={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 					>
 						<div class=" self-center flex items-center justify-center size-9">
-							<img
-								src="{WEBUI_BASE_URL}/static/favicon.png"
-								class="sidebar-new-chat-icon size-6 rounded-full group-hover:hidden"
-								alt=""
-							/>
-
-							<Sidebar className="size-5 hidden group-hover:flex" />
+							<Sidebar className="size-5" />
 						</div>
 					</button>
 				</Tooltip>
@@ -740,7 +746,7 @@
 				<div class="">
 					<Tooltip content={$i18n.t('New Chat')} placement="right">
 						<a
-							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group"
 							href="/"
 							draggable="false"
 							on:click={async (e) => {
@@ -762,7 +768,7 @@
 				<div>
 					<Tooltip content={$i18n.t('Search')} placement="right">
 						<button
-							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group"
 							on:click={(e) => {
 								e.stopImmediatePropagation();
 								e.preventDefault();
@@ -783,7 +789,7 @@
 					<div class="">
 						<Tooltip content={$i18n.t('Notes')} placement="right">
 							<a
-								class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+								class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group"
 								href="/notes"
 								on:click={async (e) => {
 									e.stopImmediatePropagation();
@@ -817,7 +823,7 @@
 							}}
 						>
 							<div
-								class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+								class=" cursor-pointer flex rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/50 transition group"
 							>
 								<div class="self-center relative">
 									<img
@@ -856,7 +862,7 @@
 		bind:this={navElement}
 		id="sidebar"
 		class="h-screen max-h-[100dvh] min-h-screen select-none {$showSidebar
-			? `${$mobile ? 'bg-gray-50 dark:bg-gray-950' : 'bg-gray-50/70 dark:bg-gray-950/70'} z-50 translate-x-0`
+			? `${$mobile ? 'bg-gray-50 dark:bg-gray-850' : 'bg-gray-50/70 dark:bg-gray-850/80'} z-50 translate-x-0`
 			: 'bg-transparent z-0 -translate-x-full pointer-events-none'} {$isApp
 			? `ml-[4.5rem] md:ml-0 `
 			: ''} shrink-0 text-gray-900 dark:text-gray-200 text-sm fixed top-0 left-0 overflow-x-hidden transition-transform duration-[250ms] ease-out
@@ -884,7 +890,7 @@
 					placement="bottom"
 				>
 					<button
-						class="flex rounded-xl size-8.5 justify-center items-center hover:bg-gray-100/50 dark:hover:bg-gray-850/50 transition {isWindows
+						class="flex rounded-xl size-8.5 justify-center items-center hover:bg-gray-100/50 dark:hover:bg-gray-800/50 transition {isWindows
 							? 'cursor-pointer'
 							: 'cursor-[w-resize]'}"
 						on:click={() => {
@@ -901,7 +907,7 @@
 				<div
 					class="{scrollTop > 0
 						? 'visible'
-						: 'invisible'} sidebar-bg-gradient-to-b bg-linear-to-b from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mb-6"
+						: 'invisible'} sidebar-bg-gradient-to-b bg-linear-to-b from-gray-50 dark:from-gray-850 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mb-6"
 				></div>
 			</div>
 
@@ -919,7 +925,7 @@
 					<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
 						<a
 							id="sidebar-new-chat-button"
-							class="group grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition outline-none"
+							class="group grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition outline-none"
 							href="/"
 							draggable="false"
 							on:click={newChatHandler}
@@ -939,7 +945,7 @@
 					<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
 						<button
 							id="sidebar-search-button"
-							class="group grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition outline-none"
+							class="group grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition outline-none"
 							on:click={() => {
 								showSearch.set(true);
 							}}
@@ -961,7 +967,7 @@
 						<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
 							<a
 								id="sidebar-notes-button"
-								class="grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+								class="grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
 								href="/notes"
 								on:click={itemClickHandler}
 								draggable="false"
@@ -979,13 +985,15 @@
 					{/if}
 				</div>
 
+				<div class="mt-2"></div>
+
 				{#if ($models ?? []).length > 0 && (($settings?.pinnedModels ?? []).length > 0 || $config?.default_pinned_models)}
 					<Folder
 						id="sidebar-models"
 						bind:open={showPinnedModels}
 						className="px-2 mt-0.5"
 						name={$i18n.t('Models')}
-						chevron={false}
+						chevron={true}
 						dragAndDrop={false}
 					>
 						<PinnedModelList bind:selectedChatId {shiftKey} />
@@ -1033,7 +1041,7 @@
 						bind:open={showFolders}
 						className="px-2 mt-0.5"
 						name={$i18n.t('Folders')}
-						chevron={false}
+						chevron={true}
 						onAdd={() => {
 							showCreateFolderModal = true;
 						}}
@@ -1084,8 +1092,8 @@
 				<Folder
 					id="sidebar-chats"
 					className="px-2 mt-0.5"
-					name={$i18n.t('Chats')}
-					chevron={false}
+					name="Conversas"
+					chevron={true}
 					collapsible={true}
 					bind:open={showChats}
 					on:change={async (e) => {
@@ -1239,34 +1247,6 @@
 						<div class="pt-1.5">
 							{#if $chats}
 								{#each $chats as chat, idx (`chat-${chat?.id ?? idx}`)}
-									{#if idx === 0 || (idx > 0 && chat.time_range !== $chats[idx - 1].time_range)}
-										<div
-											class="w-full pl-2.5 text-xs text-gray-500 dark:text-gray-500 font-medium {idx ===
-											0
-												? ''
-												: 'pt-5'} pb-1.5"
-										>
-											{$i18n.t(chat.time_range)}
-											<!-- localisation keys for time_range to be recognized from the i18next parser (so they don't get automatically removed):
-							{$i18n.t('Today')}
-							{$i18n.t('Yesterday')}
-							{$i18n.t('Previous 7 days')}
-							{$i18n.t('Previous 30 days')}
-							{$i18n.t('January')}
-							{$i18n.t('February')}
-							{$i18n.t('March')}
-							{$i18n.t('April')}
-							{$i18n.t('May')}
-							{$i18n.t('June')}
-							{$i18n.t('July')}
-							{$i18n.t('August')}
-							{$i18n.t('September')}
-							{$i18n.t('October')}
-							{$i18n.t('November')}
-							{$i18n.t('December')}
-							-->
-										</div>
-									{/if}
 
 									<ChatItem
 										className=""
@@ -1322,7 +1302,7 @@
 
 			<div class="px-1.5 pt-1.5 pb-2 sticky bottom-0 z-10 -mt-3 sidebar">
 				<div
-					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
+					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-850 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
 				></div>
 				<div class="flex flex-col">
 					{#if $user !== undefined && $user !== null}
@@ -1330,13 +1310,13 @@
 							role={$user?.role}
 							profile={$config?.features?.enable_user_status ?? true}
 							showActiveUsers={false}
-							className="max-w-[10rem]"
+							className="max-w-[11rem]"
 							align="start"
 							on:show={(e) => {
 							}}
 						>
 							<div
-								class=" flex items-center rounded-2xl py-2 px-1.5 w-full hover:bg-gray-100/50 dark:hover:bg-gray-900/50 transition"
+								class=" flex items-center rounded-2xl py-2 px-1.5 w-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition"
 							>
 								<div class=" self-center mr-3 relative">
 									<img

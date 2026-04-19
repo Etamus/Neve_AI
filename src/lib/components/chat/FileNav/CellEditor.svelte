@@ -61,7 +61,7 @@
 				'&': { fontSize: '0.75rem' },
 				'.cm-content': {
 					padding: '0.35rem 0',
-					fontFamily: "'Geist Mono', monospace"
+					fontFamily: "'Segoe UI', monospace"
 				},
 				'.cm-gutters': { display: 'none' },
 				'.cm-focused': { outline: 'none' },

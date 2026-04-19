@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import JanNumberControl from './JanNumberControl.svelte';
 	import { getContext } from 'svelte';
 
 	const i18n = getContext('i18n');
@@ -9,6 +10,8 @@
 	export let admin = false;
 	export let custom = false;
 	export let separators = false;
+	export let janStyle = false;
+	export let tooltipsEnabled = true;
 
 	const defaultParams = {
 		// Advanced - llama.cpp compatible params only
@@ -40,11 +43,35 @@
 	}
 </script>
 <div class=" space-y-1 text-xs pb-safe-bottom">
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('The temperature of the model. Increasing the temperature will make the model answer more creatively.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.temperature ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('Temperature')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.temperature = null; }}>{$i18n.t('Temperature')}</button>
+				{/if}
+			</Tooltip>
+			{#if (params?.temperature ?? null) === null}
+				<button
+					type="button"
+					class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700"
+					on:click={() => { params.temperature = 0.8; }}
+				>{$i18n.t('Default')}</button>
+			{:else}
+				<JanNumberControl bind:value={params.temperature} min={0} max={2} step={0.05} />
+			{/if}
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'The temperature of the model. Increasing the temperature will make the model answer more creatively.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -94,11 +121,36 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('This option sets the maximum number of tokens the model can generate in its response.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.max_tokens ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('Máximo de tokens')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.max_tokens = null; }}>{$i18n.t('Máximo de tokens')}</button>
+				{/if}
+			</Tooltip>
+			{#if (params?.max_tokens ?? null) === null}
+				<button
+					type="button"
+					class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700"
+					on:click={() => { params.max_tokens = 128; }}
+				>{$i18n.t('Default')}</button>
+			{:else}
+				<JanNumberControl bind:value={params.max_tokens} min={0} max={131072} step={128} />
+			{/if}
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'This option sets the maximum number of tokens the model can generate in its response. Increasing this limit allows the model to provide longer answers, but it may also increase the likelihood of unhelpful or irrelevant content being generated.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -148,11 +200,41 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('When enabled, the model will respond to each chat message in real-time, generating a response as soon as the user sends a message. This mode is useful for live chat applications, but may impact performance on slower hardware.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.stream_response ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('Stream de resposta')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.stream_response = null; }}>{$i18n.t('Stream de resposta')}</button>
+				{/if}
+			</Tooltip>
+			<button
+				type="button"
+				class="text-xs px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition shrink-0"
+				on:click={() => {
+					params.stream_response =
+						(params?.stream_response ?? null) === null
+							? true
+							: params.stream_response
+								? false
+								: null;
+				}}
+			>
+				{#if params.stream_response === true}{$i18n.t('On')}{:else if params.stream_response === false}{$i18n.t('Off')}{:else}{$i18n.t('Default')}{/if}
+			</button>
+		</div>
+	{:else}
 		<div>
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'When enabled, the model will respond to each chat message in real-time, generating a response as soon as the user sends a message. This mode is useful for live chat applications, but may impact performance on slower hardware.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -183,55 +265,40 @@
 			</div>
 		</Tooltip>
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('Tipo de quantização do KV cache. Q8_0 reduz ~50% da VRAM com qualidade praticamente igual. Q4_0 reduz ~75%. FP16 não quantiza. Requer recarregar o modelo para aplicar.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.cache_type ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('cache_type')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.cache_type = null; localStorage.removeItem('llamacpp_cache_type'); }}>{$i18n.t('cache_type')}</button>
+				{/if}
+			</Tooltip>
+			<button
+				type="button"
+				class="text-xs px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition shrink-0"
+				on:click={() => {
+					const order = [null, 'q8_0', 'q4_0', 'f16'];
+					const idx = order.indexOf(params?.cache_type ?? null);
+					const next = order[(idx + 1) % order.length];
+					params.cache_type = next;
+					if (next) { localStorage.setItem('llamacpp_cache_type', next); } else { localStorage.removeItem('llamacpp_cache_type'); }
+				}}
+			>
+				{#if (params?.cache_type ?? null) === null}Padrão{:else if params.cache_type === 'q8_0'}Q8_0{:else if params.cache_type === 'q4_0'}Q4_0{:else if params.cache_type === 'f16'}FP16{/if}
+			</button>
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
-				'Sets the stop sequences to use. When this pattern is encountered, the LLM will stop generating text and return. Multiple stop patterns may be set by specifying multiple separate stop parameters in a modelfile.'
-			)}
-			placement="top-start"
-			className="inline-tooltip"
-		>
-			<div class="flex w-full justify-between">
-				<div class=" self-center text-xs">
-					{$i18n.t('Sequência de parada')}
-				</div>
-
-				<button
-					class="p-1 px-3 text-xs flex rounded-sm transition shrink-0 outline-hidden"
-					type="button"
-					on:click={() => {
-						params.stop = (params?.stop ?? null) === null ? '' : null;
-					}}
-				>
-					{#if (params?.stop ?? null) === null}
-						<span class="ml-2 self-center"> {$i18n.t('Default')} </span>
-					{:else}
-						<span class="ml-2 self-center"> {$i18n.t('Custom')} </span>
-					{/if}
-				</button>
-			</div>
-		</Tooltip>
-
-		{#if (params?.stop ?? null) !== null}
-			<div class="flex mt-0.5 space-x-2">
-				<div class=" flex-1">
-					<input
-						class="text-sm w-full bg-transparent outline-hidden outline-none"
-						type="text"
-						placeholder={$i18n.t('Enter stop sequence')}
-						bind:value={params.stop}
-						autocomplete="off"
-					/>
-				</div>
-			</div>
-		{/if}
-	</div>
-	<hr class=" border-gray-200 dark:border-gray-700 my-2 w-full" />
-		<div class=" py-0.5 w-full justify-between">
-		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'Tipo de quantização do KV cache. Q8_0 reduz ~50% da VRAM com qualidade praticamente igual. Q4_0 reduz ~75%. FP16 não quantiza. Requer recarregar o modelo para aplicar.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -267,11 +334,32 @@
 			</div>
 		</Tooltip>
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('Alternative to the top_p, and aims to ensure a balance of quality and variety. The parameter p represents the minimum probability for a token to be considered, relative to the probability of the most likely token. For example, with p=0.05 and the most likely token having a probability of 0.9, logits with a value less than 0.045 are filtered out.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.min_p ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('min_p')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.min_p = null; }}>{$i18n.t('min_p')}</button>
+				{/if}
+			</Tooltip>
+			{#if (params?.min_p ?? null) === null}
+				<button type="button" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700" on:click={() => { params.min_p = 0.0; }}>{$i18n.t('Default')}</button>
+			{:else}
+				<JanNumberControl bind:value={params.min_p} min={0} max={1} step={0.05} />
+			{/if}
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'Alternative to the top_p, and aims to ensure a balance of quality and variety. The parameter p represents the minimum probability for a token to be considered, relative to the probability of the most likely token. For example, with p=0.05 and the most likely token having a probability of 0.9, logits with a value less than 0.045 are filtered out.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -321,11 +409,32 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('Limiar de amostragem XTC (eXclude Top Choices). Tokens com probabilidade acima deste valor são candidatos à exclusão. Intervalo 0–1. Padrão 0.1.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.xtc_threshold ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('xtc_threshold')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.xtc_threshold = null; }}>{$i18n.t('xtc_threshold')}</button>
+				{/if}
+			</Tooltip>
+			{#if (params?.xtc_threshold ?? null) === null}
+				<button type="button" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700" on:click={() => { params.xtc_threshold = 0.1; }}>{$i18n.t('Default')}</button>
+			{:else}
+				<JanNumberControl bind:value={params.xtc_threshold} min={0} max={1} step={0.01} />
+			{/if}
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'Limiar de amostragem XTC (eXclude Top Choices). Tokens com probabilidade acima deste valor são candidatos à exclusão. Intervalo 0–1. Padrão 0.1.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -374,11 +483,32 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('Probabilidade de amostragem XTC. Controla a chance de os tokens candidatos serem excluídos. Intervalo 0–1. Padrão 0.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.xtc_probability ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('xtc_probability')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.xtc_probability = null; }}>{$i18n.t('xtc_probability')}</button>
+				{/if}
+			</Tooltip>
+			{#if (params?.xtc_probability ?? null) === null}
+				<button type="button" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700" on:click={() => { params.xtc_probability = 0; }}>{$i18n.t('Default')}</button>
+			{:else}
+				<JanNumberControl bind:value={params.xtc_probability} min={0} max={1} step={0.01} />
+			{/if}
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'Probabilidade de amostragem XTC. Controla a chance de os tokens candidatos serem excluídos. Intervalo 0–1. Padrão 0.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -427,11 +557,32 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('Multiplicador de penalidade de repetição DRY (Não Se Repita). 0 desativa o DRY. Valores maiores penalizam sequências repetitivas com mais intensidade. Padrão 0.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.dry_multiplier ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('dry_multiplier')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.dry_multiplier = null; }}>{$i18n.t('dry_multiplier')}</button>
+				{/if}
+			</Tooltip>
+			{#if (params?.dry_multiplier ?? null) === null}
+				<button type="button" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700" on:click={() => { params.dry_multiplier = 0; }}>{$i18n.t('Default')}</button>
+			{:else}
+				<JanNumberControl bind:value={params.dry_multiplier} min={0} max={3} step={0.05} />
+			{/if}
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'Multiplicador de penalidade de repetição DRY (Não Se Repita). 0 desativa o DRY. Valores maiores penalizam sequências repetitivas com mais intensidade. Padrão 0.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -480,11 +631,32 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('Comprimento permitido pelo DRY. Sequências menores que este valor não são penalizadas pelo DRY. Padrão 2.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.dry_allowed_length ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('dry_allowed_length')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.dry_allowed_length = null; }}>{$i18n.t('dry_allowed_length')}</button>
+				{/if}
+			</Tooltip>
+			{#if (params?.dry_allowed_length ?? null) === null}
+				<button type="button" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700" on:click={() => { params.dry_allowed_length = 2; }}>{$i18n.t('Default')}</button>
+			{:else}
+				<JanNumberControl bind:value={params.dry_allowed_length} min={1} max={10} step={1} />
+			{/if}
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'Comprimento permitido pelo DRY. Sequências menores que este valor não são penalizadas pelo DRY. Padrão 2.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -533,11 +705,32 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
+	{#if janStyle}
+		<div class="flex w-full items-center justify-between py-1.5">
+			<Tooltip
+				content={tooltipsEnabled ? $i18n.t('Base exponencial do DRY. A penalidade cresce exponencialmente com o comprimento da sequência. Valores maiores penalizam mais repetições longas. Padrão 1.75.') : ""}
+				placement="top-start"
+				className="inline-tooltip"
+			>
+				{#if (params?.dry_base ?? null) === null}
+					<div class="text-xs text-gray-700 dark:text-gray-300">{$i18n.t('dry_base')}</div>
+				{:else}
+					<button type="button" class="text-xs text-gray-700 dark:text-gray-300 underline decoration-dotted cursor-pointer hover:text-gray-500 dark:hover:text-gray-400 transition" on:click={() => { params.dry_base = null; }}>{$i18n.t('dry_base')}</button>
+				{/if}
+			</Tooltip>
+			{#if (params?.dry_base ?? null) === null}
+				<button type="button" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700" on:click={() => { params.dry_base = 1.75; }}>{$i18n.t('Default')}</button>
+			{:else}
+				<JanNumberControl bind:value={params.dry_base} min={1} max={2.5} step={0.05} />
+			{/if}
+		</div>
+	{:else}
 		<div class=" py-0.5 w-full justify-between">
 		<Tooltip
-			content={$i18n.t(
+			content={tooltipsEnabled ? $i18n.t(
 				'Base exponencial do DRY. A penalidade cresce exponencialmente com o comprimento da sequência. Valores maiores penalizam mais repetições longas. Padrão 1.75.'
-			)}
+			) : ""}
 			placement="top-start"
 			className="inline-tooltip"
 		>
@@ -586,6 +779,7 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
 
 	{#if admin}
 		{#if custom && admin}

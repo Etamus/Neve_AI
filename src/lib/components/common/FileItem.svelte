@@ -14,7 +14,7 @@
 	const i18n = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
-	export let className = 'w-60';
+	export let className = 'w-44';
 	export let colorClassName =
 		'bg-white dark:bg-gray-850 border border-gray-50/30 dark:border-gray-800/30';
 	export let url: string | null = null;
@@ -52,9 +52,9 @@
 {/if}
 
 <button
-	class="relative group p-1.5 {className} flex items-center gap-1 {colorClassName} {small
-		? 'rounded-xl p-2'
-		: 'rounded-2xl'} text-left"
+	class="relative group {className} flex items-center gap-1 {colorClassName} {small
+		? 'rounded-lg p-1.5'
+		: 'rounded-xl p-1.5'} text-left"
 	type="button"
 	on:click={async () => {
 		if (item?.file?.data?.content || item?.type === 'file' || item?.content || modal) {
@@ -78,7 +78,7 @@
 >
 	{#if !small}
 		<div
-			class="size-10 shrink-0 flex justify-center items-center bg-black/20 dark:bg-white/10 text-white rounded-xl"
+			class="size-10 shrink-0 flex justify-center items-center bg-black/20 dark:bg-white/10 text-white rounded-lg"
 		>
 			{#if !loading}
 				<svg
@@ -102,7 +102,7 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="pl-1.5">
+		<div class="pl-1 shrink-0">
 			{#if !loading}
 				<Tooltip
 					content={type === 'collection'
@@ -153,7 +153,7 @@
 					{$i18n.t('Document')}
 				{:else if type === 'collection'}
 					{$i18n.t('Collection')}
-				{:else}
+				{:else if type !== 'chat'}
 					<span class=" capitalize line-clamp-1">{type}</span>
 				{/if}
 				{#if size}
@@ -162,14 +162,14 @@
 			</div>
 		</div>
 	{:else}
-		<Tooltip content={decodeString(name)} className="flex flex-col w-full" placement="top-start">
-			<div class="flex flex-col justify-center -space-y-0.5 px-1 w-full">
-				<div class=" dark:text-gray-100 text-sm flex justify-between items-center">
-					<div class="font-medium line-clamp-1 flex-1 pr-1">{decodeString(name)}</div>
+		<Tooltip content={decodeString(name)} className="flex flex-col w-full min-w-0" placement="top-start">
+			<div class="flex flex-col justify-center w-full min-w-0 px-1">
+				<div class="dark:text-gray-100 text-xs flex justify-between items-center gap-1">
+					<div class="font-medium line-clamp-1 flex-1 min-w-0">{decodeString(name)}</div>
 					{#if size}
-						<div class="text-gray-500 text-xs capitalize shrink-0">{formatFileSize(size)}</div>
-					{:else}
-						<div class="text-gray-500 text-xs capitalize shrink-0">{type}</div>
+						<div class="text-gray-400 text-xs capitalize shrink-0">{formatFileSize(size)}</div>
+					{:else if type !== 'chat'}
+						<div class="text-gray-400 text-xs capitalize shrink-0">{type}</div>
 					{/if}
 				</div>
 			</div>

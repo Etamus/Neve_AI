@@ -98,7 +98,7 @@
 			{/if}
 
 			{#if $user?.role === 'admin' || ($user?.permissions.chat?.system_prompt ?? true)}
-				<hr class="my-2 border-gray-50 dark:border-gray-700/10" />
+				<div class="h-8"></div>
 
 				<Collapsible
 					title={$i18n.t('System Prompt')}
@@ -106,7 +106,7 @@
 					onChange={setOpen('systemPrompt')}
 					buttonClassName="w-full"
 				>
-					<div class="" slot="content">
+					<div class="pt-3" slot="content">
 						<textarea
 							bind:value={params.system}
 							class="w-full text-xs outline-hidden resize-vertical {$settings.highContrastMode

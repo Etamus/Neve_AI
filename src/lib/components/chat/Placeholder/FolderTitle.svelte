@@ -163,7 +163,7 @@
 		</div>
 	</DeleteConfirmDialog>
 
-	<div class="mb-3 px-6 @md:max-w-3xl justify-between w-full flex relative group items-center">
+	<div class="mb-3 px-6 @md:max-w-2xl justify-between w-full flex relative group items-center">
 		<div class="text-center flex gap-3.5 items-center">
 			<EmojiPicker
 				onClose={() => {}}
@@ -189,27 +189,6 @@
 			</div>
 		</div>
 
-		<div class="flex items-center translate-x-2.5">
-			<FolderMenu
-				align="end"
-				onEdit={() => {
-					showFolderModal = true;
-				}}
-				onDelete={() => {
-					showDeleteConfirm = true;
-				}}
-				onExport={() => {
-					exportHandler();
-				}}
-			>
-				<button
-					class="p-1.5 dark:hover:bg-gray-850 rounded-full touch-auto"
-					aria-label={$i18n.t('Folder options')}
-					on:click={(e) => {}}
-				>
-					<EllipsisHorizontal className="size-4" strokeWidth="2.5" />
-				</button>
-			</FolderMenu>
-		</div>
+
 	</div>
 {/if}

@@ -9,7 +9,6 @@
 		config,
 		mobile,
 		settings,
-		showControls,
 		showSidebar,
 		temporaryChatEnabled,
 		user
@@ -62,7 +61,7 @@
 
 <ShareChatModal bind:show={showShareChatModal} chatId={$chatId} />
 
-<Modal size="md" bind:show={$showLocalModelsModal}>
+<Modal size="md" className="bg-white dark:bg-gray-900 rounded-xl w-[40rem]!" bind:show={$showLocalModelsModal}>
 	<UnifiedModels />
 </Modal>
 
@@ -78,14 +77,14 @@
 <nav
 	class="sticky top-0 z-30 w-full {chat?.id
 		? 'pt-0.5 pb-1'
-		: 'pt-1 pb-1'} -mb-12 flex flex-col items-center drag-region"
+		: 'pt-1 pb-1'} flex flex-col items-center drag-region"
 >
 	<div class="flex items-center w-full pl-1.5 pr-0">
 		<div
 			id="navbar-bg-gradient-to-b"
 			class="{chat?.id
 				? 'visible'
-				: 'invisible'} bg-linear-to-b via-40% to-97% from-white/90 via-white/50 to-transparent dark:from-gray-900/90 dark:via-gray-900/50 dark:to-transparent pointer-events-none absolute inset-0 -bottom-10 z-[-1]"
+				: 'invisible'} bg-linear-to-b from-white via-white/80 to-transparent dark:from-gray-950 dark:via-gray-950/80 dark:to-transparent pointer-events-none absolute inset-0 -bottom-7 z-[-1]"
 		></div>
 
 		<div class=" flex max-w-full w-full mx-auto px-1.5 md:px-2 pt-0.5 bg-transparent">
@@ -111,7 +110,7 @@
 
 				<div
 					class="flex-1 overflow-hidden max-w-full mt-0.5 py-0.5
-			{$showSidebar ? 'ml-1' : ''}
+			{$showSidebar ? '-ml-1' : '-ml-2'}
 			"
 				>
 					{#if showModelSelector}
@@ -121,6 +120,44 @@
 
 				<div class="self-start flex flex-none items-center text-gray-600 dark:text-gray-400">
 					<!-- <div class="md:hidden flex self-center w-[1px] h-5 mx-2 bg-gray-300 dark:bg-stone-700" /> -->
+
+					{#if $mobile && !$temporaryChatEnabled && chat && chat.id}
+						<Tooltip content={$i18n.t('New Chat')}>
+							<button
+								class=" flex {$showSidebar
+									? 'md:hidden'
+									: ''} cursor-pointer px-2 py-2 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-850 transition"
+								on:click={() => {
+									initNewChat();
+								}}
+								aria-label="New Chat"
+							>
+								<div class=" m-auto self-center">
+									<ChatPlus className=" size-4.5" strokeWidth="1.5" />
+								</div>
+							</button>
+						</Tooltip>
+					{/if}
+
+					{#if shareEnabled && chat && (chat.id || $temporaryChatEnabled)}
+						<Menu
+							{chat}
+							{shareEnabled}
+							shareHandler={() => {
+								showShareChatModal = !showShareChatModal;
+							}}
+							{moveChatHandler}
+						>
+							<button
+								class="flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
+								id="chat-context-menu-button"
+							>
+								<div class=" m-auto self-center">
+									<EllipsisHorizontal className=" size-5" strokeWidth="1.5" />
+								</div>
+							</button>
+						</Menu>
+					{/if}
 
 					{#if $user?.role === 'user' ? ($user?.permissions?.chat?.temporary ?? true) && !($user?.permissions?.chat?.temporary_enforced ?? false) : true}
 						{#if !chat?.id}
@@ -174,44 +211,6 @@
 						{/if}
 					{/if}
 
-					{#if $mobile && !$temporaryChatEnabled && chat && chat.id}
-						<Tooltip content={$i18n.t('New Chat')}>
-							<button
-								class=" flex {$showSidebar
-									? 'md:hidden'
-									: ''} cursor-pointer px-2 py-2 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-850 transition"
-								on:click={() => {
-									initNewChat();
-								}}
-								aria-label="New Chat"
-							>
-								<div class=" m-auto self-center">
-									<ChatPlus className=" size-4.5" strokeWidth="1.5" />
-								</div>
-							</button>
-						</Tooltip>
-					{/if}
-
-					{#if shareEnabled && chat && (chat.id || $temporaryChatEnabled)}
-						<Menu
-							{chat}
-							{shareEnabled}
-							shareHandler={() => {
-								showShareChatModal = !showShareChatModal;
-							}}
-							{moveChatHandler}
-						>
-							<button
-								class="flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
-								id="chat-context-menu-button"
-							>
-								<div class=" m-auto self-center">
-									<EllipsisHorizontal className=" size-5" strokeWidth="1.5" />
-								</div>
-							</button>
-						</Menu>
-					{/if}
-
 					{#if $user?.role === 'admin'}
 						<Tooltip content={$i18n.t('Models')}>
 							<button
@@ -222,34 +221,17 @@
 								aria-label="Models"
 							>
 								<div class=" m-auto self-center">
-									<svg xmlns="http://www.w3.org/2000/svg" class="size-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+									<svg xmlns="http://www.w3.org/2000/svg" class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+										<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/>
+										<rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/>
+										<rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/>
+										<rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>
 									</svg>
 								</div>
 							</button>
 						</Tooltip>
 					{/if}
 
-					{#if $user?.role === 'admin' || ($user?.permissions.chat?.controls ?? true)}
-						<Tooltip content={$i18n.t('Controls')}>
-							<button
-								class=" flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
-								on:click={async () => {
-									await showControls.set(!$showControls);
-								}}
-								aria-label="Controls"
-							>
-								<div class=" m-auto self-center">
-									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="size-5">
-										<path d="M4 6h16M4 12h16M4 18h16" />
-										<circle cx="8" cy="6" r="2" fill="currentColor" stroke="none" />
-										<circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
-										<circle cx="10" cy="18" r="2" fill="currentColor" stroke="none" />
-									</svg>
-								</div>
-							</button>
-						</Tooltip>
-					{/if}
 
 				</div>
 			</div>

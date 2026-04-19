@@ -49,7 +49,7 @@
 	export let addMessages: Function = () => {};
 
 	export let readOnly = false;
-	export let editCodeBlock = true;
+	export let editCodeBlock = false;
 
 	export let topPadding = false;
 	export let bottomPadding = false;

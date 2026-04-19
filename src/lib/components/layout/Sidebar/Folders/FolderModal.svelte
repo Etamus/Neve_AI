@@ -109,8 +109,8 @@
 
 <Modal size="sm" bind:show>
 	<div>
-		<div class=" flex justify-between dark:text-gray-300 px-5 pt-4 pb-1">
-			<div class=" text-lg font-medium self-center">
+		<div class="flex justify-between items-center px-5 pt-4 pb-3 border-b border-gray-200/30 dark:border-gray-700/20">
+			<div class="text-lg font-semibold dark:text-gray-100">
 				{#if edit}
 					{$i18n.t('Edit Folder')}
 				{:else}
@@ -118,7 +118,7 @@
 				{/if}
 			</div>
 			<button
-				class="self-center"
+				class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
 				on:click={() => {
 					show = false;
 				}}
@@ -127,48 +127,42 @@
 			</button>
 		</div>
 
-		<div class="flex flex-col md:flex-row w-full px-5 pb-4 md:space-x-4 dark:text-gray-200">
-			<div class=" flex flex-col w-full sm:flex-row sm:justify-center sm:space-x-6">
-				<form
-					class="flex flex-col w-full"
-					on:submit|preventDefault={() => {
-						submitHandler();
-					}}
-				>
-					<div class="flex flex-col w-full mt-1">
-						<div class=" mb-1 text-xs text-gray-500">{$i18n.t('Folder Name')}</div>
+		<div class="flex flex-col w-full px-5 py-4 dark:text-gray-200">
+			<form
+				class="flex flex-col w-full"
+				on:submit|preventDefault={() => {
+					submitHandler();
+				}}
+			>
+				<div class="flex flex-col w-full">
+					<input
+						id="folder-name"
+						class="w-full text-sm bg-transparent border border-gray-100/60 dark:border-gray-800/60 rounded-lg px-3 py-2 placeholder:text-gray-300 dark:placeholder:text-gray-600 outline-hidden transition"
+						type="text"
+						bind:value={name}
+						placeholder={$i18n.t('Enter folder name')}
+						autocomplete="off"
+					/>
+				</div>
 
-						<div class="flex-1">
-							<input
-								id="folder-name"
-								class="w-full text-sm bg-transparent placeholder:text-gray-300 dark:placeholder:text-gray-700 outline-hidden"
-								type="text"
-								bind:value={name}
-								placeholder={$i18n.t('Enter folder name')}
-								autocomplete="off"
-							/>
-						</div>
-					</div>
+				<div class="flex justify-end pt-4 text-sm font-medium gap-1.5">
+					<button
+					class="px-4 py-1.5 text-xs font-medium bg-black hover:opacity-90 text-white dark:bg-white dark:text-black transition rounded-lg flex flex-row space-x-1 items-center {loading
+							? ' cursor-not-allowed'
+							: ''}"
+						type="submit"
+						disabled={loading}
+					>
+						{edit ? $i18n.t('Editar') : $i18n.t('Criar')}
 
-					<div class="flex justify-end pt-3 text-sm font-medium gap-1.5">
-						<button
-							class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-950 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full flex flex-row space-x-1 items-center {loading
-								? ' cursor-not-allowed'
-								: ''}"
-							type="submit"
-							disabled={loading}
-						>
-							{$i18n.t('Save')}
-
-							{#if loading}
-								<div class="ml-2 self-center">
-									<Spinner />
-								</div>
-							{/if}
-						</button>
-					</div>
-				</form>
-			</div>
+						{#if loading}
+							<div class="ml-2 self-center">
+								<Spinner />
+							</div>
+						{/if}
+					</button>
+				</div>
+			</form>
 		</div>
 	</div>
 </Modal>

@@ -21,7 +21,7 @@
 	export let preview = false;
 
 	export let paragraphTag = 'p';
-	export let editCodeBlock = true;
+	export let editCodeBlock = false;
 	export let topPadding = false;
 
 	export let sourceIds = [];
@@ -65,7 +65,19 @@
 		if (processed === lastParsedContent) return;
 		lastParsedContent = processed;
 
-		tokens = marked.lexer(processed);
+		const newTokens = marked.lexer(processed);
+
+		// During streaming: reuse stable token references so Svelte skips re-rendering
+		// completed tokens — only the actively-growing last token gets a new reference.
+		if (!done && tokens.length > 0) {
+			tokens = newTokens.map((tok, i) => {
+				const prev = tokens[i];
+				if (prev && prev.type === tok.type && prev.raw === tok.raw) return prev;
+				return tok;
+			});
+		} else {
+			tokens = newTokens;
+		}
 	};
 
 	const updateHandler = (content) => {

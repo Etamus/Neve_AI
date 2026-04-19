@@ -15,6 +15,6 @@
 	<path
 		stroke-linecap="round"
 		stroke-linejoin="round"
-		d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+		d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 	/>
 </svg>

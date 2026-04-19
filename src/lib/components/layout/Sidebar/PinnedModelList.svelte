@@ -37,18 +37,13 @@
 
 	let unsubscribeSettings;
 
-	const cleanupStalePinnedModels = async (modelIds) => {
-		const validModels = modelIds.filter((id) => {
+	const cleanupStalePinnedModels = (modelIds) => {
+		// Only filter display — don't permanently remove from settings.
+		// Pins for temporarily unavailable models restore automatically.
+		pinnedModels = modelIds.filter((id) => {
 			const model = $models.find((m) => m.id === id);
-			// Remove if model not found (deleted) or if hidden
-			return model && !(model?.info?.meta?.hidden ?? false);
+			return model && !(model?.meta?.hidden ?? false);
 		});
-
-		if (validModels.length !== modelIds.length) {
-			pinnedModels = validModels;
-			settings.set({ ...$settings, pinnedModels: validModels });
-			await updateUserSettings(localStorage.token, { ui: $settings });
-		}
 	};
 
 	onMount(async () => {

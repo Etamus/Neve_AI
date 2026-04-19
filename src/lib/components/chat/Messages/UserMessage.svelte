@@ -45,6 +45,10 @@
 
 	let messageIndexEdit = false;
 
+	let expanded = false;
+	let contentOverflows = false;
+	let contentElement: HTMLElement;
+
 	let edit = false;
 	let editedContent = '';
 	let editedFiles = [];
@@ -116,6 +120,17 @@
 	onMount(() => {
 		// console.log('UserMessage mounted');
 	});
+
+	function checkOverflow() {
+		if (contentElement) {
+			// ~5 lines: line-height ~1.5rem * 5 = 7.5rem = 120px
+			contentOverflows = contentElement.scrollHeight > 120;
+		}
+	}
+
+	$: if (message.content && contentElement) {
+		tick().then(checkOverflow);
+	}
 </script>
 
 <DeleteConfirmDialog
@@ -133,68 +148,10 @@
 	style="scroll-margin-top: 3rem;"
 >
 	{#if !($settings?.chatBubble ?? true)}
-		<div class={`shrink-0 ltr:mr-3 rtl:ml-3 mt-1`}>
-			<ProfileImage
-				src={`${WEBUI_API_BASE_URL}/users/${user.id}/profile/image`}
-				className={'size-8 user-message-profile-image'}
-			/>
+		<div class="shrink-0 ltr:mr-5 rtl:ml-5 mt-1 w-8">
 		</div>
 	{/if}
-	<div class="flex-auto w-0 max-w-full pl-1">
-		{#if !($settings?.chatBubble ?? true)}
-			<div>
-				<Name>
-					{#if message.user}
-						{$i18n.t('You')}
-						<span class=" text-gray-500 text-sm font-medium">{message?.user ?? ''}</span>
-					{:else if $settings.showUsername || $_user.name !== user.name}
-						{user.name}
-					{:else}
-						{$i18n.t('You')}
-					{/if}
-
-					{#if message.timestamp}
-						<div
-							class="self-center text-xs font-medium first-letter:capitalize ml-0.5 translate-y-[1px] {($settings?.highContrastMode ??
-							false)
-								? 'dark:text-gray-900 text-gray-100'
-								: 'invisible group-hover:visible transition'}"
-						>
-							<Tooltip content={dayjs(message.timestamp * 1000).format('LLLL')}>
-								<!-- $i18n.t('Today at {{LOCALIZED_TIME}}') -->
-								<!-- $i18n.t('Yesterday at {{LOCALIZED_TIME}}') -->
-								<!-- $i18n.t('{{LOCALIZED_DATE}} at {{LOCALIZED_TIME}}') -->
-
-								<span class="line-clamp-1"
-									>{$i18n.t(formatDate(message.timestamp * 1000), {
-										LOCALIZED_TIME: dayjs(message.timestamp * 1000).format('LT'),
-										LOCALIZED_DATE: dayjs(message.timestamp * 1000).format('L')
-									})}</span
-								>
-							</Tooltip>
-						</div>
-					{/if}
-				</Name>
-			</div>
-		{:else if message.timestamp}
-			<div class="flex justify-end pr-2 text-xs">
-				<div
-					class="text-xs font-medium first-letter:capitalize mb-0.5 {($settings?.highContrastMode ??
-					false)
-						? 'dark:text-gray-100 text-gray-900'
-						: 'invisible group-hover:visible transition text-gray-400'}"
-				>
-					<Tooltip content={dayjs(message.timestamp * 1000).format('LLLL')}>
-						<span class="line-clamp-1"
-							>{$i18n.t(formatDate(message.timestamp * 1000), {
-								LOCALIZED_TIME: dayjs(message.timestamp * 1000).format('LT'),
-								LOCALIZED_DATE: dayjs(message.timestamp * 1000).format('L')
-							})}</span
-						>
-					</Tooltip>
-				</div>
-			</div>
-		{/if}
+	<div class="flex-auto w-0 max-w-full pl-1.5">
 
 		<div class="chat-{message.role} w-full min-w-full markdown-prose">
 			{#if edit !== true}
@@ -326,23 +283,11 @@
 						/>
 					</div>
 
-					<div class=" mt-2 mb-1 flex justify-between text-sm font-medium">
-						<div>
-							<button
-								id="save-edit-message-button"
-								class="px-3.5 py-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition rounded-3xl"
-								on:click={() => {
-									editMessageConfirmHandler(false);
-								}}
-							>
-								{$i18n.t('Save')}
-							</button>
-						</div>
-
-						<div class="flex space-x-1.5">
+					<div class=" mt-2 mb-1 flex justify-end text-sm font-medium">
+						<div class="flex space-x-1.5 items-center">
 							<button
 								id="close-edit-message-button"
-								class="px-3.5 py-1.5 bg-white dark:bg-gray-900 hover:bg-gray-100 text-gray-800 dark:text-gray-100 transition rounded-3xl"
+							class="px-4 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition rounded-lg inline-flex items-center"
 								on:click={() => {
 									cancelEditMessage();
 								}}
@@ -352,7 +297,7 @@
 
 							<button
 								id="confirm-edit-message-button"
-								class="px-3.5 py-1.5 bg-gray-900 dark:bg-white hover:bg-gray-850 text-gray-100 dark:text-gray-800 transition rounded-3xl"
+						class="px-4 py-1.5 text-xs font-medium bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition rounded-lg inline-flex items-center"
 								on:click={() => {
 									editMessageConfirmHandler();
 								}}
@@ -366,14 +311,33 @@
 				<div class="w-full">
 					<div class="flex {($settings?.chatBubble ?? true) ? 'justify-end pb-1' : 'w-full'}">
 						<div
-							class="rounded-3xl {($settings?.chatBubble ?? true)
-								? `max-w-[70%] px-4 py-1 bg-gray-50 dark:bg-gray-850 ${
+							class="rounded-xl {($settings?.chatBubble ?? true)
+								? `max-w-[80%] px-4 py-2 bg-gray-50 dark:bg-gray-850 ${
 										message.files ? 'rounded-tr-lg' : ''
 									}`
 								: ' w-full'}"
 						>
 							{#if message.content}
-								<p class="whitespace-pre-wrap break-words chat-user-content">{message.content}</p>
+								<div class="relative">
+									<div
+										bind:this={contentElement}
+										class="whitespace-pre-wrap break-words chat-user-content transition-all duration-200"
+										style={!expanded && contentOverflows ? 'max-height: 7.5rem; overflow: hidden;' : ''}
+									>{message.content}</div>
+
+									{#if !expanded && contentOverflows}
+										<div class="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-gray-50 dark:from-gray-850 to-transparent pointer-events-none"></div>
+									{/if}
+								</div>
+
+								{#if contentOverflows}
+									<button
+										class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mt-1 transition"
+										on:click={() => { expanded = !expanded; }}
+									>
+										{expanded ? 'Mostrar menos' : 'Mostrar mais'}
+									</button>
+								{/if}
 							{/if}
 						</div>
 					</div>
@@ -382,9 +346,9 @@
 
 			{#if edit !== true}
 				<div
-					class=" flex {($settings?.chatBubble ?? true)
+					class="flex items-center gap-1 {($settings?.chatBubble ?? true)
 						? 'justify-end'
-						: ''}  text-gray-600 dark:text-gray-500"
+						: ''} text-gray-600 dark:text-gray-500 mt-1"
 				>
 					{#if !($settings?.chatBubble ?? true)}
 						{#if siblings.length > 1}
@@ -480,12 +444,35 @@
 							</div>
 						{/if}
 					{/if}
+					{#if message?.content}
+						<Tooltip content={$i18n.t('Copy')} placement="bottom">
+							<button
+								class="opacity-0 group-hover:opacity-100 p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition"
+								on:click={() => {
+									copyToClipboard(message.content);
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="2.3"
+									stroke="currentColor"
+									class="w-4 h-4"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
+									/>
+								</svg>
+							</button>
+						</Tooltip>
+					{/if}
 					{#if !readOnly}
 						<Tooltip content={$i18n.t('Edit')} placement="bottom">
 							<button
-								class="{($settings?.highContrastMode ?? false)
-									? ''
-									: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition edit-user-message-button"
+								class="opacity-0 group-hover:opacity-100 p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition edit-user-message-button"
 								on:click={() => {
 									editMessageHandler();
 								}}
@@ -513,41 +500,11 @@
 						</Tooltip>
 					{/if}
 
-					{#if message?.content}
-						<Tooltip content={$i18n.t('Copy')} placement="bottom">
-							<button
-								class="{($settings?.highContrastMode ?? false)
-									? ''
-									: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
-								on:click={() => {
-									copyToClipboard(message.content);
-								}}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="2.3"
-									stroke="currentColor"
-									class="w-4 h-4"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
-									/>
-								</svg>
-							</button>
-						</Tooltip>
-					{/if}
-
 					{#if $_user?.role === 'admin' || ($_user?.permissions?.chat?.delete_message ?? false)}
 						{#if !readOnly && (!isFirstMessage || siblings.length > 1)}
 							<Tooltip content={$i18n.t('Delete')} placement="bottom">
 								<button
-									class="{($settings?.highContrastMode ?? false)
-										? ''
-										: 'invisible group-hover:visible'} p-1 rounded-sm dark:hover:text-white hover:text-black transition"
+									class="opacity-0 group-hover:opacity-100 p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full dark:hover:text-white hover:text-black transition"
 									on:click={() => {
 										showDeleteConfirm = true;
 									}}

@@ -215,6 +215,9 @@ print("${endTag}")
 				onChange(_value);
 			}
 		}),
+		EditorView.theme({
+			'.cm-foldGutter': { display: 'none !important' }
+		}),
 		editorTheme.of([]),
 		editorLanguage.of([])
 	];

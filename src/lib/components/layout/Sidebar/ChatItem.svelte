@@ -319,7 +319,7 @@
 <div
 	id="sidebar-chat-group"
 	bind:this={itemElement}
-	class=" w-full {className} relative group"
+	class=" w-full {className} relative group mb-0.5"
 	draggable={!confirmEdit}
 >
 	{#if confirmEdit}
@@ -327,10 +327,10 @@
 			id="sidebar-chat-item"
 			class=" w-full flex justify-between rounded-xl px-[11px] py-[6px] {id === $chatId ||
 			confirmEdit
-				? 'bg-gray-100 dark:bg-gray-900 selected'
+				? 'bg-gray-100 dark:bg-gray-800 selected'
 				: selected
-					? 'bg-gray-100 dark:bg-gray-950 selected'
-					: 'group-hover:bg-gray-100 dark:group-hover:bg-gray-950'}  whitespace-nowrap text-ellipsis relative {generating
+					? 'bg-gray-100 dark:bg-gray-800 selected'
+					: 'group-hover:bg-gray-100 dark:group-hover:bg-gray-800'}  whitespace-nowrap text-ellipsis relative {generating
 				? 'cursor-not-allowed'
 				: ''}"
 		>
@@ -363,10 +363,10 @@
 			id="sidebar-chat-item"
 			class=" w-full flex justify-between rounded-xl px-[11px] py-[6px] {id === $chatId ||
 			confirmEdit
-				? 'bg-gray-100 dark:bg-gray-900 selected'
+				? 'bg-gray-100 dark:bg-gray-800 selected'
 				: selected
-					? 'bg-gray-100 dark:bg-gray-950 selected'
-					: ' group-hover:bg-gray-100 dark:group-hover:bg-gray-950'}  whitespace-nowrap text-ellipsis"
+					? 'bg-gray-100 dark:bg-gray-800 selected'
+					: ' group-hover:bg-gray-100 dark:group-hover:bg-gray-800'}  whitespace-nowrap text-ellipsis"
 			href="/c/{id}"
 			on:click={() => {
 				dispatch('select');
@@ -395,13 +395,6 @@
 			on:focus={(e) => {}}
 			draggable="false"
 		>
-			<!-- Loading spinner for active chat (left side) -->
-			{#if $activeChatIds.has(id)}
-				<div class="shrink-0 self-center pr-2">
-					<Spinner className="size-3" />
-				</div>
-			{/if}
-
 			<div class="flex self-center flex-1 w-full min-w-0">
 				<div dir="auto" class="text-left self-center overflow-hidden w-full h-[20px] truncate">
 					{title}
@@ -417,14 +410,17 @@
 		id="sidebar-chat-item-menu"
 		class="
         {id === $chatId || confirmEdit
-			? 'from-gray-100 dark:from-gray-900 selected'
+			? 'from-gray-100 dark:from-gray-800 selected'
 			: selected
-				? 'from-gray-100 dark:from-gray-950 selected'
-				: 'invisible group-hover:visible from-gray-100 dark:from-gray-950'}
+				? 'from-gray-100 dark:from-gray-800 selected'
+				: $activeChatIds.has(id) && !mouseOver
+					? 'from-gray-50 dark:from-gray-850'
+					: $activeChatIds.has(id) && mouseOver
+						? 'from-gray-100 dark:from-gray-800'
+						: 'invisible group-hover:visible from-gray-100 dark:from-gray-800'}
             absolute {className === 'pr-2'
 			? 'right-[8px]'
-			: 'right-1'} top-[4px] py-1 pr-0.5 mr-1.5 pl-5 bg-linear-to-l from-80%
-
+			: 'right-1'} top-0 bottom-0 flex items-center pr-0.5 mr-1.5 pl-5 bg-linear-to-l from-80%
               to-transparent"
 		on:mouseenter={(e) => {
 			mouseOver = true;
@@ -476,6 +472,11 @@
 				</Tooltip>
 			</div>
 		{:else}
+			{#if $activeChatIds.has(id) && !mouseOver}
+				<div class="flex self-center z-10 items-center">
+					<Spinner className="size-3" />
+				</div>
+			{:else}
 			<div class="flex self-center z-10 items-end">
 				<ChatMenu
 					chatId={id}
@@ -542,6 +543,7 @@
 					</button>
 				{/if}
 			</div>
+			{/if}
 		{/if}
 	</div>
 </div>
