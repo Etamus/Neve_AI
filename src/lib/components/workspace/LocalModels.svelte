@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import { onMount } from 'svelte';
 	import { getModels } from '$lib/apis';
 	import { models } from '$lib/stores';
@@ -175,7 +175,7 @@
 		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
 			<div class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-xl mx-4 w-80 flex flex-col gap-3">
 				<p class="text-sm font-semibold text-gray-900 dark:text-white">Selecionar módulo de visão</p>
-				<div class="flex flex-col gap-1.5 max-h-52 overflow-y-auto scrollbar-none">
+				<div class="flex flex-col gap-1.5 max-h-80 overflow-y-auto scrollbar-none">
 					{#each mmProjFiles as f}
 						<button
 							class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-left transition {mmProjSelectedFile === f ? 'bg-black text-white dark:bg-white dark:text-black font-medium' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
@@ -215,7 +215,7 @@
 					<p class="text-sm font-semibold text-gray-900 dark:text-white">Tamanho do Contexto</p>
 				</div>
 				<p class="text-xs text-gray-500 dark:text-gray-400">Selecione o tamanho do contexto em tokens para <span class="font-medium text-gray-700 dark:text-gray-300">{contextModalModel.filename.replace('.gguf', '')}</span></p>
-				<div class="flex flex-col gap-1.5 max-h-52 overflow-y-auto scrollbar-none">
+				<div class="flex flex-col gap-1.5 max-h-80 overflow-y-auto scrollbar-none">
 					{#each [2048, 4096, 8192, 16384, 32768, 65536] as size}
 						<button
 							class="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition {contextModalSize === size ? 'bg-black text-white dark:bg-white dark:text-black font-medium' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
@@ -365,16 +365,18 @@
 													Processando...
 												</div>
 											{:else if model.is_loaded}
-												<a
-													href="/?models={encodeURIComponent(model.id)}"
-													class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-													on:click|stopPropagation
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-													</svg>
-													Conversar
-												</a>
+
+												{#if mmProjFiles.length > 0}
+													<button
+														class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-gray-600 dark:text-gray-400"
+														on:click={() => openVisionSelector(model)}
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
+														</svg>
+														{model.mmproj_filename ? 'Trocar visão' : 'Adicionar visão'}
+													</button>
+												{/if}
 												<button
 													class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition text-gray-600 dark:text-gray-400"
 													on:click={() => handleUnload(model)}
@@ -406,20 +408,6 @@
 										{/if}
 									</div>
 
-									<!-- mmproj section (only when model is loaded) -->
-									{#if model.is_loaded && mmProjFiles.length > 0}
-										<div class="mt-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-800">
-											<button
-												class="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
-												on:click={() => openVisionSelector(model)}
-											>
-												<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-													<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
-												</svg>
-												{model.mmproj_filename ? 'Trocar visão' : 'Adicionar visão'}
-											</button>
-										</div>
-									{/if}
 								</div>
 							</div>
 						</div>
@@ -429,14 +417,4 @@
 		{/if}
 	</div>
 
-	<!-- Footer -->
-	<div class="px-4 py-2.5 border-t border-gray-100 dark:border-gray-850 shrink-0">
-		<div class="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
-			<span>
-				{localModels.length} modelo{localModels.length !== 1 ? 's' : ''} ·
-				{localModels.filter((m) => m.is_loaded).length} carregado{localModels.filter((m) => m.is_loaded).length !== 1 ? 's' : ''}
-			</span>
-			<span class="font-mono">models/*.gguf</span>
-		</div>
-	</div>
 </div>

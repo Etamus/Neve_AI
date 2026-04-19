@@ -1,5 +1,5 @@
 {
-	"Smileys & Emotion": [
+	"Rostos e Emoções": [
 		"1F600",
 		"1F603",
 		"1F604",
@@ -186,7 +186,7 @@
 		"1F4AD",
 		"1F4A4"
 	],
-	"People & Body": [
+	"Pessoas e Corpo": [
 		"1F44B",
 		"1F44B-1F3FB",
 		"1F44B-1F3FC",
@@ -3479,8 +3479,8 @@
 		"1F463",
 		"1FAC6"
 	],
-	"Component": ["1F3FB", "1F3FC", "1F3FD", "1F3FE", "1F3FF", "1F9B0", "1F9B1", "1F9B3", "1F9B2"],
-	"Animals & Nature": [
+	"Componentes": ["1F3FB", "1F3FC", "1F3FD", "1F3FE", "1F3FF", "1F9B0", "1F9B1", "1F9B3", "1F9B2"],
+	"Animais e Natureza": [
 		"1F435",
 		"1F412",
 		"1F98D",
@@ -3648,7 +3648,7 @@
 		"1F344",
 		"1FABE"
 	],
-	"Food & Drink": [
+	"Comida e Bebida": [
 		"1F347",
 		"1F348",
 		"1F349",
@@ -3783,7 +3783,7 @@
 		"1FAD9",
 		"1F3FA"
 	],
-	"Travel & Places": [
+	"Viagens e Lugares": [
 		"1F30D",
 		"1F30E",
 		"1F30F",
@@ -4052,7 +4052,7 @@
 		"1F4A7",
 		"1F30A"
 	],
-	"Activities": [
+	"Atividades": [
 		"1F383",
 		"1F384",
 		"1F386",
@@ -4150,7 +4150,7 @@
 		"1F9F6",
 		"1FAA2"
 	],
-	"Objects": [
+	"Objetos": [
 		"1F453",
 		"1F576-FE0F",
 		"1F576",
@@ -4466,7 +4466,7 @@
 		"1FAA7",
 		"1FAAA"
 	],
-	"Symbols": [
+	"Símbolos": [
 		"1F3E7",
 		"1F6AE",
 		"1F6B0",
@@ -4773,7 +4773,7 @@
 		"1F533",
 		"1F532"
 	],
-	"Flags": [
+	"Bandeiras": [
 		"1F3C1",
 		"1F6A9",
 		"1F38C",

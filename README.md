@@ -1,6 +1,14 @@
 # Neve AI
 
-**Neve AI** é uma plataforma de chat com inteligência artificial completa, moderna e executada 100% localmente. Combina um backend FastAPI de alta performance com um frontend SvelteKit responsivo, oferecendo streaming de respostas, suporte a múltiplos modelos GGUF via llama.cpp, visão computacional (mmproj), RAG, busca na web, execução de código, geração de imagens, reconhecimento de voz e muito mais — sem dependência de serviços externos e sem envio de dados para terceiros.
+**Neve AI** é um ecossistema de orquestração de IA privacy-first, desenvolvido para oferecer uma experiência de inferência local de alta performance com soberania total de dados. A plataforma integra um backend assíncrono em FastAPI a uma interface reativa em SvelteKit 5, utilizando o motor llama.cpp para viabilizar o suporte a modelos GGUF com aceleração de hardware (CUDA/Vulkan). O projeto consolida funcionalidades avançadas de nível empresarial em um ambiente 100% offline, incluindo um pipeline de RAG híbrido (ChromaDB/BM25), execução de código em sandbox via Pyodide, automação de busca web e ferramentas de produtividade, eliminando qualquer dependência de APIs externas ou serviços de terceiros.
+
+---
+
+<img width="1918" height="1008" alt="{CB39D918-42A2-4334-BDDE-09DC11A0057C}" src="https://github.com/user-attachments/assets/5fb399ec-e2eb-470a-a844-311e326ae55e" />
+
+---
+
+<img width="1656" height="379" alt="{F197E691-096C-4BC1-9EC3-27D56D5A7B06}" src="https://github.com/user-attachments/assets/611c6dec-7f2c-4a97-bc32-12b9c0556fbf" />
 
 ---
 
@@ -14,7 +22,7 @@
 | Banco de dados | SQLite via SQLAlchemy + Alembic |
 | Inferência local | llama.cpp (binários baixados pelo instalador) |
 | Porta padrão | 8080 |
-| OS | Windows (principal); Linux/macOS com adaptações |
+| OS | Windows (principal); Linux/macOS somente com adaptações |
 
 ---
 
@@ -108,7 +116,7 @@ Neve AI/
 │           └── common/       # Componentes reutilizáveis
 │
 ├── backend/
-│   └── open_webui/
+│   └── neveai/
 │       ├── main.py           # Entry point FastAPI
 │       ├── config.py         # Configuração global
 │       ├── routers/          # Endpoints REST (chat, models, audio, images...)
@@ -127,58 +135,6 @@ Neve AI/
 ├── logs/                     # Logs de runtime [não commitado]
 └── static/                   # Assets estáticos do frontend (pyodide, wasm...)
 ```
-
-### O que vai para o git (via `.gitignore`)
-
-As pastas pesadas são excluídas do controle de versão e recriadas pelo instalador:
-
-| Pasta excluída | Tamanho aprox. | Como é restaurada |
-|---|---|---|
-| `backend/open_webui/venv/` | ~6 GB | `pip install` via instalar |
-| `backend/data/` | variável | Dados de runtime |
-| `backend/open_webui/frontend/` | ~550 MB | `npm run build` + cópia |
-| `backend/open_webui/static/` | ~255 MB | `npm run build` + cópia |
-| `node_modules/` | ~950 MB | `npm install` |
-| `llamacpp-server/bin/` | ~750 MB | Download GitHub via instalar |
-| `.svelte-kit/` | ~190 MB | Auto-gerado pelo SvelteKit |
-| `build/` | ~160 MB | `npm run build` |
-| `models/` | variável | Usuário baixa seus modelos |
-| `mmproj/` | variável | Usuário baixa seus mmprojs |
-| `logs/` | variável | Runtime |
-
-O repositório puro fica em torno de **~135 MB** (código-fonte + assets estáticos do frontend).
-
----
-
-## Variáveis de Ambiente
-
-O arquivo `.env` fica na raiz do projeto (`d:\Neve AI\.env`) e é criado automaticamente pelo instalador. Principais variáveis:
-
-```env
-# Frontend
-VITE_RELATIVE_CONFIG=True
-VITE_OPENWEBUI_BACKEND_URL=http://localhost:8080
-
-# Backend
-ENV=dev
-PORT=8080
-WEBUI_SECRET_KEY=troque-esta-chave-por-algo-seguro
-WEBUI_AUTH=False
-WEBUI_NAME=Neve AI
-
-# APIs externas (desabilitadas por padrão — uso local)
-ENABLE_OLLAMA_API=False
-ENABLE_OPENAI_API=False
-ENABLE_WEB_SEARCH=False
-ENABLE_IMAGE_GENERATION=False
-
-# Configurações de segurança/acesso
-ENABLE_SIGNUP=True
-BYPASS_MODEL_ACCESS_CONTROL=True
-SAFE_MODE=False
-CORS_ALLOW_ORIGIN=http://localhost:8080
-```
-
 ---
 
 ## Funcionalidades
@@ -203,7 +159,6 @@ CORS_ALLOW_ORIGIN=http://localhost:8080
 ### Entrada
 - Upload de arquivos: PDF, DOCX, PPTX, imagens, vídeo, código, planilhas
 - Integração Google Drive e OneDrive
-- Speech-to-Text via Whisper local (faster-whisper) ou Azure/Deepgram
 
 ### RAG (Retrieval-Augmented Generation)
 - Base de conhecimento vetorial com ChromaDB
@@ -215,7 +170,6 @@ CORS_ALLOW_ORIGIN=http://localhost:8080
 - **Busca na web** via DuckDuckGo (sem chave de API)
 - **Execução de código Python** via Pyodide (WebAssembly, no browser)
 - **Geração de imagens** via Stable Diffusion local
-- **Text-to-Speech** local (Kokoro) ou via API
 - **MCP (Model Context Protocol)** v1.26 para ferramentas externas
 - Painel administrativo completo (usuários, modelos, permissões, analytics)
 
@@ -258,7 +212,7 @@ CORS_ALLOW_ORIGIN=http://localhost:8080
 ```powershell
 cd "d:\Neve AI"
 npm run build
-Copy-Item -Path "build\*" -Destination "backend\open_webui\frontend" -Recurse -Force
+Copy-Item -Path "build\*" -Destination "backend\neveai\frontend" -Recurse -Force
 ```
 
 ### Dev mode (hot reload)
@@ -266,7 +220,7 @@ Copy-Item -Path "build\*" -Destination "backend\open_webui\frontend" -Recurse -F
 ```powershell
 # Terminal 1 — Backend
 cd "d:\Neve AI\backend"
-..\backend\open_webui\venv\Scripts\python -m uvicorn open_webui.main:app --host 0.0.0.0 --port 8080 --reload
+..\backend\neveai\venv\Scripts\python -m uvicorn open_webui.main:app --host 0.0.0.0 --port 8080 --reload
 
 # Terminal 2 — Frontend
 cd "d:\Neve AI"

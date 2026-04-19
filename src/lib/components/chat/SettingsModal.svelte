@@ -384,28 +384,9 @@
 			<div
 				role="tablist"
 				id="settings-tabs-container"
-				class="tabs flex flex-row overflow-x-auto gap-2.5 mx-3 md:pr-4 md:gap-1 md:flex-col flex-1 md:flex-none md:w-46 md:min-h-[28rem] md:max-h-[28rem] dark:text-gray-200 text-sm text-left mb-1 md:mb-0 -translate-y-1"
+				class="tabs flex flex-row overflow-x-auto gap-2.5 mx-3 md:pr-4 md:gap-1 md:flex-col flex-1 md:flex-none md:w-46 md:min-h-[22rem] md:max-h-[22rem] dark:text-gray-200 text-sm text-left mb-1 md:mb-0 -translate-y-1"
 			>
-				<div
-					class="hidden md:flex w-full rounded-full px-2.5 gap-2 bg-gray-100/80 dark:bg-gray-850/80 backdrop-blur-2xl my-1 mb-1.5"
-					id="settings-search"
-				>
-					<div class="self-center rounded-l-xl bg-transparent">
-						<Search
-							className="size-3.5"
-							strokeWidth={($settings?.highContrastMode ?? false) ? '3' : '1.5'}
-						/>
-					</div>
-					<label class="sr-only" for="search-input-settings-modal">{$i18n.t('Search')}</label>
-					<input
-						class={`w-full py-1 text-sm bg-transparent dark:text-gray-300 outline-hidden
-								${($settings?.highContrastMode ?? false) ? 'placeholder-gray-800' : ''}`}
-						bind:value={search}
-						id="search-input-settings-modal"
-						on:input={searchDebounceHandler}
-						placeholder={$i18n.t('Search')}
-					/>
-				</div>
+
 				{#if filteredSettings.length > 0}
 					{#each filteredSettings as tabId (tabId)}
 						{#if tabId === 'general'}
@@ -512,7 +493,7 @@
 					</div>
 				{/if}
 			</div>
-			<div class="flex-1 px-3.5 md:pl-0 md:pr-4.5 md:min-h-[28rem] max-h-[28rem] overflow-y-auto">
+			<div class="flex-1 px-3.5 md:pl-0 md:pr-4.5 md:min-h-[22rem] max-h-[22rem] overflow-y-auto">
 				{#if selectedTab === 'general'}
 					<General
 						{getModels}
@@ -533,6 +514,7 @@
 						{saveSettings}
 						on:save={() => {
 							toast.success($i18n.t('Settings saved successfully!'));
+							show = false;
 						}}
 					/>
 				{:else if selectedTab === 'data_controls'}

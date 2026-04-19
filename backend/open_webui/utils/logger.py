@@ -196,3 +196,14 @@ def start_logger():
         uvicorn_logger.handlers = [InterceptHandler()]
 
     logger.info(f"GLOBAL_LOG_LEVEL: {GLOBAL_LOG_LEVEL}")
+
+    # Suppress noisy third-party loggers that are irrelevant in local mode
+    for noisy in [
+        "alembic",
+        "alembic.runtime.migration",
+        "sentence_transformers",
+        "transformers",
+        "langchain_community",
+        "langchain_community.utils.user_agent",
+    ]:
+        logging.getLogger(noisy).setLevel(logging.WARNING)

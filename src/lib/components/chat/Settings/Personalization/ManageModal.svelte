@@ -107,7 +107,7 @@
 											</td>
 											<td class="px-3 py-1">
 												<div class="flex justify-end w-full">
-													<Tooltip content="Edit">
+													<Tooltip content="Editar">
 														<button
 															class="self-center w-fit text-sm px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
 															on:click={() => {
@@ -132,7 +132,7 @@
 														</button>
 													</Tooltip>
 
-													<Tooltip content="Delete">
+													<Tooltip content="Deletar">
 														<button
 															class="self-center w-fit text-sm px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
 															on:click={async () => {
@@ -182,15 +182,15 @@
 					</div>
 				{/if}
 			</div>
-			<div class="flex text-sm font-medium gap-1.5">
+			<div class="flex text-xs font-medium gap-1.5">
 				<button
-					class=" px-3.5 py-1.5 font-medium hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-gray-100 dark:outline-gray-800 rounded-3xl"
+					class=" px-2.5 py-1 font-medium hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-gray-100 dark:outline-gray-800 rounded-3xl"
 					on:click={() => {
 						showAddMemoryModal = true;
 					}}>{$i18n.t('Add Memory')}</button
 				>
 				<button
-					class=" px-3.5 py-1.5 font-medium text-red-500 hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-red-100 dark:outline-red-800 rounded-3xl"
+					class=" px-2.5 py-1 font-medium text-red-500 hover:bg-black/5 dark:hover:bg-white/5 outline outline-1 outline-red-100 dark:outline-red-800 rounded-3xl"
 					on:click={() => {
 						if (memories.length > 0) {
 							showClearConfirmDialog = true;

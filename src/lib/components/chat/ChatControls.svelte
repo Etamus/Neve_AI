@@ -1,9 +1,8 @@
 <script context="module" lang="ts">
-	let savedTab: 'controls' | 'files' | 'overview' = 'controls';
+	let savedTab: 'controls' | 'files' = 'controls';
 </script>
 
 <script lang="ts">
-	import { SvelteFlowProvider } from '@xyflow/svelte';
 	import { slide } from 'svelte/transition';
 	import { Pane, PaneResizer } from 'paneforge';
 	import { v4 as uuidv4 } from 'uuid';
@@ -33,8 +32,6 @@
 	import Embeds from './ChatControls/Embeds.svelte';
 	import FileNav from './FileNav.svelte';
 	import PyodideFileNav from './PyodideFileNav.svelte';
-	import Overview from './Overview.svelte';
-
 	const i18n = getContext('i18n');
 
 	export let history;
@@ -74,18 +71,14 @@
 	$: showFilesTab =
 		!!$selectedTerminalId ||
 		(codeInterpreterEnabled && $config?.code?.interpreter_engine !== 'jupyter');
-	$: showOverviewTab = hasMessages;
-
 	// Tab fallback: if active tab becomes hidden, switch to next available
-	$: if (!showOverviewTab && activeTab === 'overview') activeTab = 'controls';
 	$: if (!showFilesTab && activeTab === 'files') activeTab = 'controls';
 	$: if (!showControlsTab && activeTab === 'controls') {
 		if (showFilesTab) activeTab = 'files';
-		else if (showOverviewTab) activeTab = 'overview';
 	}
 
 	// Auto-close if there are no visible tabs
-	$: if (!showControlsTab && !showFilesTab && !showOverviewTab) {
+	$: if (!showControlsTab && !showFilesTab) {
 		showControls.set(false);
 	}
 
@@ -313,17 +306,7 @@
 										{$i18n.t('Files')}
 									</button>
 								{/if}
-								{#if showOverviewTab}
-									<button
-										class="px-2.5 py-1 text-sm rounded-lg transition whitespace-nowrap {activeTab ===
-										'overview'
-											? 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white'
-											: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
-										on:click={() => (activeTab = 'overview')}
-									>
-										{$i18n.t('Overview')}
-									</button>
-								{/if}
+
 							</div>
 							<button
 								class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400"
@@ -344,22 +327,11 @@
 						</div>
 
 						<div
-							class="flex-1 min-h-0 {activeTab === 'overview'
-								? 'h-full'
-								: activeTab === 'controls'
-									? 'overflow-y-auto px-3 pt-1'
-									: ''}"
+							class="flex-1 min-h-0 {activeTab === 'controls'
+								? 'overflow-y-auto px-3 pt-1'
+								: ''}"
 						>
-							{#if activeTab === 'overview'}
-								<Overview
-									{history}
-									onNodeClick={(e) => {
-										const node = e.node;
-										showMessage(node.data.message, true);
-									}}
-									onClose={() => showControls.set(false)}
-								/>
-							{:else if activeTab === 'files' && $selectedTerminalId}
+							{#if activeTab === 'files' && $selectedTerminalId}
 								<FileNav onAttach={handleTerminalAttach} />
 							{:else if activeTab === 'files' && codeInterpreterEnabled}
 								<PyodideFileNav />
@@ -459,17 +431,7 @@
 											{$i18n.t('Files')}
 										</button>
 									{/if}
-									{#if showOverviewTab}
-										<button
-											class="px-2.5 py-1 text-sm rounded-lg transition whitespace-nowrap {activeTab ===
-											'overview'
-												? 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white'
-												: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
-											on:click={() => (activeTab = 'overview')}
-										>
-											{$i18n.t('Overview')}
-										</button>
-									{/if}
+
 								</div>
 								<button
 									class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400"
@@ -490,27 +452,11 @@
 							</div>
 
 							<div
-								class="flex-1 min-h-0 {activeTab === 'overview'
-									? 'h-full'
-									: activeTab === 'controls'
-										? 'overflow-y-auto px-3 pt-1'
-										: ''}"
+								class="flex-1 min-h-0 {activeTab === 'controls'
+									? 'overflow-y-auto px-3 pt-1'
+									: ''}"
 							>
-								{#if activeTab === 'overview'}
-									<Overview
-										{history}
-										onNodeClick={(e) => {
-											const node = e.node;
-											if (node?.data?.message?.favorite) {
-												history.messages[node.data.message.id].favorite = true;
-											} else {
-												history.messages[node.data.message.id].favorite = null;
-											}
-											showMessage(node.data.message, true);
-										}}
-										onClose={() => showControls.set(false)}
-									/>
-								{:else if activeTab === 'files' && $selectedTerminalId}
+								{#if activeTab === 'files' && $selectedTerminalId}
 									<FileNav onAttach={handleTerminalAttach} overlay={dragged} />
 								{:else if activeTab === 'files' && codeInterpreterEnabled}
 									<PyodideFileNav overlay={dragged} />

@@ -602,29 +602,12 @@ class SPAStaticFiles(StaticFiles):
         return response
 
 
-if LOG_FORMAT != "json":
-    # Reconfigure stdout to UTF-8 to support Unicode characters on Windows
-    if hasattr(sys.stdout, "reconfigure"):
-        try:
-            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        except Exception:
-            pass
+# Ensure stdout handles UTF-8 on Windows
+if hasattr(sys.stdout, "reconfigure"):
     try:
-        print(rf"""
- ██████╗ ██████╗ ███████╗███╗   ██╗    ██╗    ██╗███████╗██████╗ ██╗   ██╗██╗
-██╔═══██╗██╔══██╗██╔════╝████╗  ██║    ██║    ██║██╔════╝██╔══██╗██║   ██║██║
-██║   ██║██████╔╝█████╗  ██╔██╗ ██║    ██║ █╗ ██║█████╗  ██████╔╝██║   ██║██║
-██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║    ██║███╗██║██╔══╝  ██╔══██╗██║   ██║██║
-╚██████╔╝██║     ███████╗██║ ╚████║    ╚███╔███╔╝███████╗██████╔╝╚██████╔╝██║
- ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝     ╚══╝╚══╝ ╚══════╝╚═════╝  ╚═════╝ ╚═╝
-
-
-v{VERSION} - building the best AI user interface.
-{f"Commit: {WEBUI_BUILD_HASH}" if WEBUI_BUILD_HASH != "dev-build" else ""}
-https://github.com/open-webui/open-webui
-""")
-    except UnicodeEncodeError:
-        print(f"Open WebUI v{VERSION} - building the best AI user interface.\nhttps://github.com/open-webui/open-webui\n")
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 
 @asynccontextmanager
@@ -2348,6 +2331,29 @@ async def get_app_version():
         "version": VERSION,
         "deployment_id": DEPLOYMENT_ID,
     }
+
+
+@app.post("/api/shutdown")
+async def shutdown_app(background_tasks: BackgroundTasks, user=Depends(get_admin_user)):
+    """Encerra o servidor Neve AI (backend + llama-server). Apenas admins."""
+    import signal
+    import psutil
+
+    def _do_shutdown():
+        import time
+        time.sleep(0.5)  # dá tempo para a resposta HTTP ser enviada
+        # Encerra processos llama-server
+        for proc in psutil.process_iter(["pid", "name"]):
+            try:
+                if proc.info["name"] and "llama-server" in proc.info["name"].lower():
+                    proc.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        # Encerra o próprio processo uvicorn
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    background_tasks.add_task(_do_shutdown)
+    return {"status": True, "message": "Shutting down"}
 
 
 @app.get("/api/version/updates")

@@ -891,7 +891,7 @@
 				}
 			},
 			editorProps: {
-				attributes: { id },
+				attributes: { id, spellcheck: 'false' },
 				handlePaste: (view, event) => {
 					// Force plain-text pasting when richText === false
 					if (!richText) {
@@ -967,6 +967,17 @@
 						eventDispatch('focus', { event });
 						return false;
 					},
+					blur: (view, event) => {
+						// Clear selection when the editor loses focus so text
+						// doesn't stay visually highlighted after clicking outside.
+						const { state, dispatch } = view;
+						if (!state.selection.empty) {
+							dispatch(state.tr.setSelection(
+								state.selection.constructor.near(state.doc.resolve(state.selection.anchor))
+							));
+						}
+						return false;
+					},
 					keyup: (view, event) => {
 						eventDispatch('keyup', { event });
 						return false;
@@ -1023,7 +1034,11 @@
 										return false; // Let ProseMirror handle the Enter key normally
 									}
 
-									editor.commands.enter(); // Insert a new line
+									if (shiftEnter) {
+										editor.commands.setHardBreak(); // Hard break (sem margem de parágrafo extra)
+									} else {
+										editor.commands.enter(); // Nova linha como parágrafo
+									}
 									view.dispatch(view.state.tr.scrollIntoView()); // Move viewport to the cursor
 									event.preventDefault();
 									return true;

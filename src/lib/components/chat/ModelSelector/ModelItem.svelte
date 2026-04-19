@@ -11,9 +11,8 @@
 	import { copyToClipboard, sanitizeResponseContent } from '$lib/utils';
 	import ArrowUpTray from '$lib/components/icons/ArrowUpTray.svelte';
 	import Check from '$lib/components/icons/Check.svelte';
-	import ModelItemMenu from './ModelItemMenu.svelte';
-	import EllipsisHorizontal from '$lib/components/icons/EllipsisHorizontal.svelte';
-	import { toast } from 'svelte-sonner';
+	import Pin from '$lib/components/icons/Pin.svelte';
+	import PinSlash from '$lib/components/icons/PinSlash.svelte';
 	import Tag from '$lib/components/icons/Tag.svelte';
 	import Label from '$lib/components/icons/Label.svelte';
 
@@ -39,8 +38,6 @@
 			toast.error($i18n.t('Failed to copy link'));
 		}
 	};
-
-	let showMenu = false;
 </script>
 
 <button
@@ -76,18 +73,16 @@
 
 		<div class="flex items-center gap-2">
 			<div class="flex items-center min-w-fit">
-				<Tooltip content={$user?.role === 'admin' ? (item?.value ?? '') : ''} placement="top-start">
-					<img
-						src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${item.model.id}&lang=${$i18n.language}`}
-						alt={$i18n.t('{{modelName}} profile image', { modelName: item.label })}
-						class="rounded-full size-5 flex items-center"
-						loading="lazy"
-					/>
-				</Tooltip>
+				<img
+					src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${item.model.id}&lang=${$i18n.language}`}
+					alt={$i18n.t('{{modelName}} profile image', { modelName: item.label })}
+					class="rounded-full size-5 flex items-center"
+					loading="lazy"
+				/>
 			</div>
 
 			<div class="flex items-center">
-				<Tooltip content={`${item.label} (${item.value})`} placement="top-start">
+				<Tooltip content={`${item.label} (${item.value.replace(/^local\//, '')})`} placement="top-start">
 					<div class="line-clamp-1">
 						{item.label}
 					</div>
@@ -248,26 +243,27 @@
 			</Tooltip>
 		{/if}
 
-		<ModelItemMenu
-			bind:show={showMenu}
-			model={item.model}
-			{pinModelHandler}
-			copyLinkHandler={() => {
-				copyLinkHandler(item.model);
-			}}
+		<!-- Pin direto, sem dropdown -->
+		<Tooltip
+			content={($settings?.pinnedModels ?? []).includes(item.model?.id) ? $i18n.t('Desfixar') : $i18n.t('Fixar')}
+			className="flex-shrink-0 group-hover/item:opacity-100 opacity-0"
 		>
 			<button
-				aria-label={`${$i18n.t('More Options')}`}
+				aria-label={($settings?.pinnedModels ?? []).includes(item.model?.id) ? $i18n.t('Desfixar') : $i18n.t('Fixar')}
 				class="flex"
 				on:click={(e) => {
 					e.preventDefault();
 					e.stopPropagation();
-					showMenu = !showMenu;
+					pinModelHandler(item.model?.id);
 				}}
 			>
-				<EllipsisHorizontal />
+				{#if ($settings?.pinnedModels ?? []).includes(item.model?.id)}
+					<PinSlash className="size-3" />
+				{:else}
+					<Pin className="size-3" />
+				{/if}
 			</button>
-		</ModelItemMenu>
+		</Tooltip>
 
 		{#if value === item.value}
 			<div>

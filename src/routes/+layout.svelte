@@ -1,7 +1,7 @@
 <script>
 	import { io } from 'socket.io-client';
 	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
-	import { Toaster, toast } from 'svelte-sonner';
+	import { toast } from 'svelte-sonner';
 
 	// Disable all non-error toast notifications (success, info, warning, message)
 	// Keep toast.error intact so error toasts still display
@@ -59,7 +59,7 @@
 	import { displayFileHandler } from '$lib/utils';
 	import { setTextScale } from '$lib/utils/text-scale';
 
-	import NotificationToast from '$lib/components/NotificationToast.svelte';
+
 	import AppSidebar from '$lib/components/app/AppSidebar.svelte';
 	import SyncStatsModal from '$lib/components/chat/Settings/SyncStatsModal.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -447,18 +447,6 @@
 							playingNotificationSound.set(false);
 						});
 					}
-
-					toast.custom(NotificationToast, {
-						componentProps: {
-							onClick: () => {
-								goto(`/c/${event.chat_id}`);
-							},
-							content: content,
-							title: displayTitle
-						},
-						duration: 15000,
-						unstyled: true
-					});
 				}
 			} else if (type === 'chat:title') {
 				currentChatPage.set(1);
@@ -557,22 +545,6 @@
 				}
 			}
 
-			if (type === 'message') {
-				const title = `${data?.user?.name}${event?.channel?.type !== 'dm' ? ` (#${event?.channel?.name})` : ''}`;
-
-
-				toast.custom(NotificationToast, {
-					componentProps: {
-						onClick: () => {
-							goto(`/channels/${event.channel_id}`);
-						},
-						content: data?.content,
-						title: `${title}`
-					},
-					duration: 15000,
-					unstyled: true
-				});
-			}
 		}
 	};
 
@@ -856,15 +828,3 @@
 	<SyncStatsModal bind:show={showSyncStatsModal} eventData={syncStatsEventData} />
 {/if}
 
-<Toaster
-	theme={$theme.includes('dark')
-		? 'dark'
-		: $theme === 'system'
-			? window.matchMedia('(prefers-color-scheme: dark)').matches
-				? 'dark'
-				: 'light'
-			: 'light'}
-	richColors
-	position="top-right"
-	closeButton
-/>

@@ -37,7 +37,7 @@
 	import ChatCheck from '../icons/ChatCheck.svelte';
 	import Knobs from '../icons/Knobs.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import LocalModels from '$lib/components/workspace/LocalModels.svelte';
+	import UnifiedModels from '$lib/components/chat/UnifiedModels.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -62,8 +62,8 @@
 
 <ShareChatModal bind:show={showShareChatModal} chatId={$chatId} />
 
-<Modal size="lg" bind:show={$showLocalModelsModal}>
-	<LocalModels />
+<Modal size="md" bind:show={$showLocalModelsModal}>
+	<UnifiedModels />
 </Modal>
 
 <button
@@ -115,7 +115,7 @@
 			"
 				>
 					{#if showModelSelector}
-						<ModelSelector bind:selectedModels showSetDefault={!shareEnabled} />
+						<ModelSelector bind:selectedModels />
 					{/if}
 				</div>
 
@@ -223,7 +223,7 @@
 							>
 								<div class=" m-auto self-center">
 									<svg xmlns="http://www.w3.org/2000/svg" class="size-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+										<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
 									</svg>
 								</div>
 							</button>
@@ -240,7 +240,12 @@
 								aria-label="Controls"
 							>
 								<div class=" m-auto self-center">
-									<Knobs className=" size-5" strokeWidth="1" />
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="size-5">
+										<path d="M4 6h16M4 12h16M4 18h16" />
+										<circle cx="8" cy="6" r="2" fill="currentColor" stroke="none" />
+										<circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
+										<circle cx="10" cy="18" r="2" fill="currentColor" stroke="none" />
+									</svg>
 								</div>
 							</button>
 						</Tooltip>

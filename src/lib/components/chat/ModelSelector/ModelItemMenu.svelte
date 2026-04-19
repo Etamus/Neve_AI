@@ -10,7 +10,7 @@
 	import DocumentDuplicate from '$lib/components/icons/DocumentDuplicate.svelte';
 	import Link from '$lib/components/icons/Link.svelte';
 	import Pencil from '$lib/components/icons/Pencil.svelte';
-	import { config, settings, user, showAdminModelsModal, showSettingsModelId } from '$lib/stores';
+	import { config, settings, user, showLocalModelsModal, showSettingsModelId } from '$lib/stores';
 	import GlobeAlt from '$lib/components/icons/GlobeAlt.svelte';
 
 	const i18n = getContext('i18n');
@@ -62,7 +62,7 @@
 					e.preventDefault();
 
 					showSettingsModelId.set(model?.id ?? '');
-					showAdminModelsModal.set(true);
+					showLocalModelsModal.set(true);
 					show = false;
 				}}
 			>
@@ -96,25 +96,9 @@
 				{#if ($settings?.pinnedModels ?? []).includes(model?.id)}
 					{$i18n.t('Hide from Sidebar')}
 				{:else}
-					{$i18n.t('Keep in Sidebar')}
+					{$i18n.t('Fixar')}
 				{/if}
 			</div>
-		</DropdownMenu.Item>
-
-		<DropdownMenu.Item
-			type="button"
-			class="select-none flex rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition items-center gap-2"
-			on:click={(e) => {
-				e.stopPropagation();
-				e.preventDefault();
-
-				copyLinkHandler();
-				show = false;
-			}}
-		>
-			<Link />
-
-			<div class="flex items-center">{$i18n.t('Copy Link')}</div>
 		</DropdownMenu.Item>
 
 		{#if $config?.features.enable_community_sharing}

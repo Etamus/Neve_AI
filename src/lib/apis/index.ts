@@ -2,6 +2,17 @@ import { WEBUI_BASE_URL } from '$lib/constants';
 import { convertOpenApiToToolPayload } from '$lib/utils';
 import { getOpenAIModelsDirect } from './openai';
 
+export const shutdownApp = async (token: string) => {
+	const res = await fetch(`${WEBUI_BASE_URL}/api/shutdown`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		}
+	}).catch(() => null);
+	return res?.ok ?? false;
+};
+
 export const getModels = async (
 	token: string = '',
 	connections: object | null = null,

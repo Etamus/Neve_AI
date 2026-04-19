@@ -54,7 +54,7 @@
 		[key: string]: any;
 	}[] = [];
 
-	export let className = 'w-[32rem]';
+	export let className = 'w-[22rem]';
 	export let triggerClassName = 'text-lg';
 
 	export let pinModelHandler: (modelId: string) => void = () => {};
@@ -657,7 +657,7 @@
 			<div class="mb-2.5"></div>
 
 			<div class="hidden w-[42rem]" />
-			<div class="hidden w-[32rem]" />
+			<div class="hidden w-[22rem]" />
 		</slot>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>

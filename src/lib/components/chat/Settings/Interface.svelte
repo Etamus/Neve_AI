@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import { config, models, settings, user } from '$lib/stores';
 	import { createEventDispatcher, onMount, onDestroy, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
@@ -318,93 +318,6 @@
 
 	<div class=" space-y-3 overflow-y-scroll max-h-[28rem] md:max-h-full">
 		<div>
-			<h1 class=" mb-2 text-sm font-medium">{$i18n.t('UI')}</h1>
-
-			<div>
-				<div class="py-0.5 flex w-full justify-between">
-					<label id="ui-scale-label" class=" self-center text-xs" for="ui-scale-slider">
-						{$i18n.t('UI Scale')}
-					</label>
-
-					<div class="flex items-center gap-2 p-1">
-						<button
-							class="text-xs"
-							aria-live="polite"
-							type="button"
-							on:click={() => {
-								if (textScale === null) {
-									textScale = 1.15;
-									setTextScaleHandler(1.15);
-								} else {
-									textScale = null;
-									setTextScale(1.15);
-									saveSettings({ textScale: null });
-								}
-							}}
-						>
-							{#if textScale === null}
-								<span>{$i18n.t('Default')}</span>
-							{:else}
-								<span>{textScale}x</span>
-							{/if}
-						</button>
-					</div>
-				</div>
-
-				{#if textScale !== null}
-					<div class=" flex items-center gap-2 px-1 pb-1">
-						<button
-							type="button"
-							class="rounded-lg p-1 transition outline-gray-200 hover:bg-gray-100 dark:outline-gray-700 dark:hover:bg-gray-800"
-							on:click={() => {
-								textScale = Math.max(1, parseFloat((textScale - 0.1).toFixed(2)));
-								setTextScaleHandler(textScale);
-							}}
-							aria-labelledby="ui-scale-label"
-							aria-label={$i18n.t('Decrease UI Scale')}
-						>
-							<Minus className="h-3.5 w-3.5" />
-						</button>
-
-						<div class="flex-1 flex items-center">
-							<input
-								id="ui-scale-slider"
-								class="w-full"
-								type="range"
-								min="1"
-								max="1.5"
-								step={0.01}
-								bind:value={textScale}
-								on:change={() => {
-									setTextScaleHandler(textScale);
-								}}
-								aria-labelledby="ui-scale-label"
-								aria-valuemin="1"
-								aria-valuemax="1.5"
-								aria-valuenow={textScale}
-								aria-valuetext={`${textScale}x`}
-							/>
-						</div>
-
-						<button
-							type="button"
-							class="rounded-lg p-1 transition outline-gray-200 hover:bg-gray-100 dark:outline-gray-700 dark:hover:bg-gray-800"
-							on:click={() => {
-								textScale = Math.min(1.5, parseFloat((textScale + 0.1).toFixed(2)));
-								setTextScaleHandler(textScale);
-							}}
-							aria-labelledby="ui-scale-label"
-							aria-label={$i18n.t('Increase UI Scale')}
-						>
-							<Plus className="h-3.5 w-3.5" />
-						</button>
-					</div>
-				{/if}
-			</div>
-
-			{#if $user?.role === 'admin'}
-			{/if}
-
 			<div class=" my-2 text-sm font-medium">{$i18n.t('Chat')}</div>
 
 			<div>

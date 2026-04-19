@@ -11,19 +11,7 @@
 	export let selectedModels = [''];
 	export let disabled = false;
 
-	export let showSetDefault = true;
 
-	const saveDefaultModel = async () => {
-		const hasEmptyModel = selectedModels.filter((it) => it === '');
-		if (hasEmptyModel.length) {
-			toast.error($i18n.t('Choose a model before saving...'));
-			return;
-		}
-		settings.set({ ...$settings, models: selectedModels });
-		await updateUserSettings(localStorage.token, { ui: $settings });
-
-		toast.success($i18n.t('Default model updated'));
-	};
 
 	const pinModelHandler = async (modelId) => {
 		let pinnedModels = $settings?.pinnedModels ?? [];
@@ -71,10 +59,4 @@
 	{/each}
 </div>
 
-{#if showSetDefault}
-	<div
-		class="relative text-left mt-[1px] ml-1 text-[0.7rem] text-gray-600 dark:text-gray-400"
-	>
-		<button on:click={saveDefaultModel}> {$i18n.t('Set as default')}</button>
-	</div>
-{/if}
+

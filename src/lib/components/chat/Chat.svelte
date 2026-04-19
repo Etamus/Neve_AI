@@ -77,7 +77,7 @@
 	} from '$lib/apis/chats';
 	import { generateOpenAIChatCompletion } from '$lib/apis/openai';
 	import { processWeb, processWebSearch, processYoutubeVideo } from '$lib/apis/retrieval';
-	import { getAndUpdateUserLocation, getUserSettings } from '$lib/apis/users';
+	import { getAndUpdateUserLocation, getUserSettings, updateUserSettings } from '$lib/apis/users';
 	import {
 		chatCompleted,
 		generateQueries,
@@ -295,6 +295,10 @@
 			return;
 		}
 		sessionStorage.selectedModels = selectedModelsString;
+		// Auto-save last used model(s) to settings (replaces manual 'Set as default')
+		const newSettings = { ...$settings, models: selectedModels };
+		settings.set(newSettings);
+		updateUserSettings(localStorage.token, { ui: newSettings }).catch(() => {});
 		console.log('saveSessionSelectedModels', selectedModels, sessionStorage.selectedModels);
 	};
 

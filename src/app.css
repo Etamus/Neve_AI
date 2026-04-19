@@ -87,11 +87,11 @@ textarea::placeholder {
 }
 
 .input-prose {
-	@apply prose dark:prose-invert prose-headings:font-semibold prose-hr:my-4 prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-0 prose-img:my-1 prose-headings:my-2 prose-pre:my-0 prose-table:my-1 prose-blockquote:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 whitespace-pre-line;
-	line-height: 1.5;
+	@apply prose dark:prose-invert prose-headings:font-semibold prose-hr:my-4 prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-0 prose-img:my-1 prose-headings:my-2 prose-pre:my-0 prose-table:my-1 prose-blockquote:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 whitespace-pre-line;
+	line-height: 1.7;
 	font-size: 0.85rem;
 	letter-spacing: -0.011em;
-	font-family: 'Geist', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+	font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
 }
 
 .input-prose-sm {
@@ -99,29 +99,37 @@ textarea::placeholder {
 }
 
 .markdown-prose {
-	@apply prose dark:prose-invert prose-blockquote:border-s-gray-100 prose-blockquote:dark:border-gray-800 prose-blockquote:border-s-2 prose-blockquote:not-italic prose-blockquote:font-normal  prose-headings:font-semibold prose-hr:my-4 prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-0 prose-img:my-1 prose-headings:my-1 prose-pre:my-0 prose-table:my-0 prose-blockquote:my-0 prose-ul:-my-0 prose-ol:-my-0 prose-li:-my-0 whitespace-pre-line;
-	line-height: 1.5;
+	@apply prose dark:prose-invert prose-blockquote:border-s-gray-100 prose-blockquote:dark:border-gray-800 prose-blockquote:border-s-2 prose-blockquote:not-italic prose-blockquote:font-normal  prose-headings:font-semibold prose-hr:my-4 prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-3 prose-img:my-1 prose-headings:my-3 prose-pre:my-0 prose-table:my-2 prose-blockquote:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 whitespace-pre-line;
+	line-height: 1.75;
 	font-size: 0.9rem;
 	letter-spacing: -0.011em;
-	font-family: 'Geist', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+	font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
 }
 
 .markdown-prose-sm {
-	@apply text-sm prose dark:prose-invert prose-blockquote:border-s-gray-100 prose-blockquote:dark:border-gray-800 prose-blockquote:border-s-2 prose-blockquote:not-italic prose-blockquote:font-normal  prose-headings:font-semibold prose-hr:my-2  prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-0 prose-img:my-1 prose-headings:my-1 prose-pre:my-0 prose-table:my-0 prose-blockquote:my-0 prose-ul:-my-0 prose-ol:-my-0 prose-li:-my-0 whitespace-pre-line;
-	line-height: 1.5;
+	@apply text-sm prose dark:prose-invert prose-blockquote:border-s-gray-100 prose-blockquote:dark:border-gray-800 prose-blockquote:border-s-2 prose-blockquote:not-italic prose-blockquote:font-normal  prose-headings:font-semibold prose-hr:my-2  prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-2 prose-img:my-1 prose-headings:my-2 prose-pre:my-0 prose-table:my-1 prose-blockquote:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 whitespace-pre-line;
+	line-height: 1.7;
 	letter-spacing: -0.011em;
-	font-family: 'Geist', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+	font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
 }
 
 .markdown-prose-xs {
-	@apply text-xs prose dark:prose-invert prose-blockquote:border-s-gray-100 prose-blockquote:dark:border-gray-800 prose-blockquote:border-s-2 prose-blockquote:not-italic prose-blockquote:font-normal  prose-headings:font-semibold prose-hr:my-0.5  prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-0 prose-img:my-1 prose-headings:my-1 prose-pre:my-0 prose-table:my-0 prose-blockquote:my-0 prose-ul:-my-0 prose-ol:-my-0 prose-li:-my-0 whitespace-pre-line;
-	line-height: 1.5;
+	@apply text-xs prose dark:prose-invert prose-blockquote:border-s-gray-100 prose-blockquote:dark:border-gray-800 prose-blockquote:border-s-2 prose-blockquote:not-italic prose-blockquote:font-normal  prose-headings:font-semibold prose-hr:my-0.5  prose-hr:border-gray-50 prose-hr:dark:border-gray-850 prose-p:my-1.5 prose-img:my-1 prose-headings:my-1 prose-pre:my-0 prose-table:my-0 prose-blockquote:my-0 prose-ul:my-0.5 prose-ol:my-0.5 prose-li:my-0 whitespace-pre-line;
+	line-height: 1.65;
 	letter-spacing: -0.011em;
-	font-family: 'Geist', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+	font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
 }
 
 .markdown {
-	font-family: 'Geist', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+	font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Fonte e espaçamento para o editor de digitação — regra principal em bloco abaixo */
+
+/* Texto do usuário no chat (sem markdown) */
+.chat-user-content {
+	font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+	line-height: 1.4;
 }
 
 .markdown a {
@@ -393,8 +401,9 @@ input[type='range']::-moz-range-thumb {
 
 .ProseMirror {
 	@apply h-full min-h-fit max-h-full whitespace-pre-wrap;
-	font-family: 'Geist', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
+	font-family: 'Segoe UI', 'Vazirmatn', ui-sans-serif, system-ui, sans-serif;
 	letter-spacing: -0.011em;
+	line-height: 1.7;
 }
 
 .ProseMirror:focus {
@@ -408,7 +417,6 @@ input[type='range']::-moz-range-thumb {
 	text-gray-600 from: https://tailwindcss.com/docs/color */
 	color: #676767;
 	pointer-events: none;
-
 	@apply line-clamp-1 absolute;
 }
 

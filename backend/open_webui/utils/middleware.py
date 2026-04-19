@@ -4696,6 +4696,7 @@ async def streaming_chat_response_handler(response, ctx):
                             **form_data,
                             "model": model_id,
                             "stream": True,
+                            "no_think": True,
                             "messages": [
                                 *form_data["messages"],
                                 *convert_output_to_messages(output, raw=True),
@@ -4881,6 +4882,7 @@ async def streaming_chat_response_handler(response, ctx):
                                 **form_data,
                                 "model": model_id,
                                 "stream": True,
+                                "no_think": True,
                                 "messages": [
                                     *form_data["messages"],
                                     *convert_output_to_messages(output, raw=True),

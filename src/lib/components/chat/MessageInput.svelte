@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
 	import DOMPurify from 'dompurify';
 	import { toast } from 'svelte-sonner';
 
@@ -65,7 +65,6 @@
 	import { getSuggestionRenderer } from '../common/RichTextInput/suggestions';
 
 	import InputMenu from './MessageInput/InputMenu.svelte';
-	import VoiceRecording from './MessageInput/VoiceRecording.svelte';
 
 	import ToolServersModal from './ToolServersModal.svelte';
 
@@ -85,7 +84,6 @@
 	import Voice from '../icons/Voice.svelte';
 	import Cloud from '../icons/Cloud.svelte';
 	import Code from '../icons/Code.svelte';
-	import IntegrationsMenu from './MessageInput/IntegrationsMenu.svelte';
 	import TerminalMenu from './MessageInput/TerminalMenu.svelte';
 	import Knobs from '../icons/Knobs.svelte';
 	import PlusAlt from '../icons/PlusAlt.svelte';
@@ -153,11 +151,6 @@
 	let showValvesModal = false;
 	let selectedValvesType = 'tool'; // 'tool' or 'function'
 	let selectedValvesItemId = null;
-	let integrationsMenuCloseOnOutsideClick = true;
-
-	$: if (!showValvesModal) {
-		integrationsMenuCloseOnOutsideClick = true;
-	}
 
 	$: onChange({
 		prompt,
@@ -179,6 +172,18 @@
 		stableDiffusionEnabled,
 		thinkingEnabled
 	});
+
+	$: isCompact =
+		atSelectedModel === undefined &&
+		!history?.currentId &&
+		files.length === 0 &&
+		!webSearchEnabled &&
+		!imageGenerationEnabled &&
+		!codeInterpreterEnabled &&
+		!codeExecutionEnabled &&
+		!stableDiffusionEnabled &&
+		(selectedToolIds ?? []).length === 0 &&
+		(selectedFilterIds ?? []).length === 0;
 
 	const inputVariableHandler = async (text: string): Promise<string> => {
 		inputVariables = extractInputVariables(text);
@@ -416,7 +421,6 @@
 	let showTools = false;
 
 	let loaded = false;
-	let recording = false;
 	let showThinkingDropdown = false;
 
 	let isComposing = false;
@@ -742,7 +746,7 @@
 				}
 
 				const compressImageHandler = async (imageUrl, settings = {}, config = {}) => {
-					// Quick shortcut so we don’t do unnecessary work.
+					// Quick shortcut so we don't do unnecessary work.
 					const settingsCompression = settings?.imageCompression ?? false;
 					const configWidth = config?.file?.image_compression?.width ?? null;
 					const configHeight = config?.file?.image_compression?.height ?? null;
@@ -865,16 +869,9 @@
 			shiftKey = true;
 		}
 
-		// Cmd/Ctrl+Shift+L to toggle dictation
+		// Cmd/Ctrl+Shift+L (legacy hotkey kept for no-op)
 		if (e.key.toLowerCase() === 'l' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
 			e.preventDefault();
-			if (recording) {
-				// Confirm and stop recording
-				document.getElementById('confirm-recording-button')?.click();
-			} else {
-				// Start recording (same logic as voice-input-button click)
-				document.getElementById('voice-input-button')?.click();
-			}
 			return;
 		}
 
@@ -1090,7 +1087,6 @@
 		await tick();
 	}}
 	on:close={() => {
-		integrationsMenuCloseOnOutsideClick = true;
 	}}
 />
 
@@ -1114,7 +1110,7 @@
 			<div
 				class="flex flex-col px-3 {($settings?.widescreenMode ?? null)
 					? 'max-w-full'
-					: 'max-w-6xl'} w-full"
+					: 'max-w-3xl'} w-full"
 			>
 				<div class="relative">
 					{#if autoScroll === false && history?.currentId}
@@ -1151,7 +1147,7 @@
 			<div
 				class="{($settings?.widescreenMode ?? null)
 					? 'max-w-full'
-					: 'max-w-6xl'} px-2.5 mx-auto inset-x-0"
+					: 'max-w-3xl'} px-2.5 mx-auto inset-x-0"
 			>
 				<div class="">
 					<input
@@ -1172,33 +1168,8 @@
 						}}
 					/>
 
-					<div class={recording ? '' : 'hidden'}>
-						<VoiceRecording
-							bind:recording
-							onCancel={async () => {
-								recording = false;
-
-								await tick();
-								document.getElementById('chat-input')?.focus();
-							}}
-							onConfirm={async (data) => {
-								const { text, filename } = data;
-
-								recording = false;
-
-								await tick();
-								await insertTextAtCursor(`${text}`);
-								await tick();
-								document.getElementById('chat-input')?.focus();
-
-								if ($settings?.speechAutoSend ?? false) {
-									dispatch('submit', prompt);
-								}
-							}}
-						/>
-					</div>
 					<form
-						class="w-full flex flex-col gap-1.5 {recording ? 'hidden' : ''}"
+						class="w-full flex flex-col gap-1.5"
 						on:submit|preventDefault={() => {
 							// check if selectedModels support image input
 							dispatch('submit', prompt);
@@ -1230,12 +1201,13 @@
 
 						<div
 							id="message-input-container"
-							class="flex-1 flex flex-col relative w-full shadow-lg rounded-3xl border {$temporaryChatEnabled
+							class="flex-1 flex {isCompact ? 'flex-row items-center rounded-full' : 'flex-col rounded-3xl'} relative w-full shadow-lg border {$temporaryChatEnabled
 								? 'border-dashed border-gray-100 dark:border-gray-800 hover:border-gray-200 focus-within:border-gray-200 hover:dark:border-gray-700 focus-within:dark:border-gray-700'
-								: ' border-gray-100/30 dark:border-gray-850/30 hover:border-gray-200 focus-within:border-gray-100 hover:dark:border-gray-800 focus-within:dark:border-gray-800'}  transition px-1 bg-white/5 dark:bg-gray-500/5 backdrop-blur-sm dark:text-gray-100"
+								: ' border-gray-100/30 dark:border-gray-850/30 hover:border-gray-200 focus-within:border-gray-100 hover:dark:border-gray-800 focus-within:dark:border-gray-800'}  transition {isCompact ? 'px-1 py-2' : 'px-1'} bg-white/5 dark:bg-gray-500/5 backdrop-blur-sm dark:text-gray-100"
 							dir={$settings?.chatDirection ?? 'auto'}
 						>
-							{#if atSelectedModel !== undefined}
+							{#if !isCompact}
+								{#if atSelectedModel !== undefined}
 								<div class="px-3 pt-3 text-left w-full flex flex-col z-10">
 									<div class="flex items-center justify-between w-full">
 										<div class="pl-[1px] flex items-center gap-2 text-sm dark:text-gray-500">
@@ -1356,15 +1328,94 @@
 									{/each}
 								</div>
 							{/if}
+						{/if}
 
-							<div class="px-2.5">
+						{#if isCompact}
+							<InputMenu
+								bind:files
+								selectedModels={atSelectedModel ? [atSelectedModel.id] : selectedModels}
+								{fileUploadCapableModels}
+								{inputFilesHandler}
+								uploadFilesHandler={() => {
+									filesInputElement.click();
+								}}
+								uploadGoogleDriveHandler={async () => {
+									try {
+										const fileData = await createPicker();
+										if (fileData) {
+											const file = new File([fileData.blob], fileData.name, {
+												type: fileData.blob.type
+											});
+											await uploadFileHandler(file);
+										} else {
+											console.log('No file was selected from Google Drive');
+										}
+									} catch (error) {
+										console.error('Google Drive Error:', error);
+										toast.error(
+											$i18n.t('Error accessing Google Drive: {{error}}', {
+												error: error.message
+											})
+										);
+									}
+								}}
+								uploadOneDriveHandler={async (authorityType) => {
+									try {
+										const fileData = await pickAndDownloadFile(authorityType);
+										if (fileData) {
+											const file = new File([fileData.blob], fileData.name, {
+												type: fileData.blob.type || 'application/octet-stream'
+											});
+											await uploadFileHandler(file);
+										} else {
+											console.log('No file was selected from OneDrive');
+										}
+									} catch (error) {
+										console.error('OneDrive Error:', error);
+									}
+								}}
+								{onUpload}
+								onClose={async () => {
+									await tick();
+									const chatInput = document.getElementById('chat-input');
+									chatInput?.focus();
+								}}
+								{toggleFilters}
+								{showWebSearchButton}
+								{showImageGenerationButton}
+								{showCodeInterpreterButton}
+								{showCodeExecutionButton}
+								{showStableDiffusionButton}
+								bind:selectedToolIds
+								bind:selectedFilterIds
+								bind:webSearchEnabled
+								bind:imageGenerationEnabled
+								bind:codeInterpreterEnabled
+								bind:codeExecutionEnabled
+								bind:stableDiffusionEnabled
+								onShowValves={(e) => {
+									const { type, id } = e;
+									selectedValvesType = type;
+									selectedValvesItemId = id;
+									showValvesModal = true;
+								}}
+							>
 								<div
-									class="scrollbar-hidden rtl:text-right ltr:text-left bg-transparent dark:text-gray-100 outline-hidden w-full pb-1 px-1 resize-none h-fit max-h-96 overflow-auto {files.length ===
+									class="bg-transparent hover:bg-gray-100 text-gray-700 dark:text-white dark:hover:bg-gray-800 rounded-full size-8 flex justify-center items-center outline-hidden focus:outline-hidden"
+								>
+									<PlusAlt className="size-5.5" />
+								</div>
+							</InputMenu>
+						{/if}
+
+							<div class="{isCompact ? 'flex-1 min-w-0 px-1 flex items-center' : 'px-2.5'}">
+								<div
+									class="scrollbar-hidden rtl:text-right ltr:text-left bg-transparent dark:text-gray-100 outline-hidden w-full px-1 resize-none h-fit max-h-96 overflow-auto {files.length ===
 									0
 										? atSelectedModel !== undefined
 											? 'pt-1.5'
-											: 'pt-2.5'
-										: ''}"
+											: isCompact ? '' : 'pt-2.5'
+										: ''} {isCompact ? '' : 'pb-1'}"
 									id="chat-input-container"
 								>
 									{#if prompt.split('\n').length > 2}
@@ -1554,13 +1605,13 @@
 								</div>
 							</div>
 
+							{#if !isCompact}
 							<div class=" flex justify-between mt-2 mb-2.5 mx-0.5 max-w-full" dir="ltr">
 								<div class="ml-1 self-end flex items-center flex-1 max-w-[80%]">
 									<InputMenu
 										bind:files
 										selectedModels={atSelectedModel ? [atSelectedModel.id] : selectedModels}
 										{fileUploadCapableModels}
-										{screenCaptureHandler}
 										{inputFilesHandler}
 										uploadFilesHandler={() => {
 											filesInputElement.click();
@@ -1603,65 +1654,36 @@
 										{onUpload}
 										onClose={async () => {
 											await tick();
-
-											const chatInput = document.getElementById('chat-input');
-											chatInput?.focus();
-										}}
+										const chatInput = document.getElementById('chat-input');
+										chatInput?.focus();
+									}}
+									{toggleFilters}
+									{showWebSearchButton}
+									{showImageGenerationButton}
+									{showCodeInterpreterButton}
+									{showCodeExecutionButton}
+									{showStableDiffusionButton}
+									bind:selectedToolIds
+									bind:selectedFilterIds
+									bind:webSearchEnabled
+									bind:imageGenerationEnabled
+									bind:codeInterpreterEnabled
+									bind:codeExecutionEnabled
+									bind:stableDiffusionEnabled
+									onShowValves={(e) => {
+										const { type, id } = e;
+										selectedValvesType = type;
+										selectedValvesItemId = id;
+										showValvesModal = true;
+									}}
+								>
+									<div
+										id="input-menu-button"
+										class="bg-transparent hover:bg-gray-100 text-gray-700 dark:text-white dark:hover:bg-gray-800 rounded-full size-8 flex justify-center items-center outline-hidden focus:outline-hidden"
 									>
-										<div
-											id="input-menu-button"
-											class="bg-transparent hover:bg-gray-100 text-gray-700 dark:text-white dark:hover:bg-gray-800 rounded-full size-8 flex justify-center items-center outline-hidden focus:outline-hidden"
-										>
-											<PlusAlt className="size-5.5" />
-										</div>
-									</InputMenu>
-
-									{#if showWebSearchButton || showImageGenerationButton || showCodeInterpreterButton || showCodeExecutionButton || showStableDiffusionButton || showToolsButton || (toggleFilters && toggleFilters.length > 0)}
-										<div
-											class="flex self-center w-[1px] h-4 mx-1 bg-gray-200/50 dark:bg-gray-800/50"
-										/>
-
-										<IntegrationsMenu
-											selectedModels={atSelectedModel ? [atSelectedModel.id] : selectedModels}
-											{toggleFilters}
-											{showWebSearchButton}
-											{showImageGenerationButton}
-											{showCodeInterpreterButton}
-											{showCodeExecutionButton}
-											{showStableDiffusionButton}
-											{showThinkingButton}
-											bind:selectedToolIds
-											bind:selectedFilterIds
-											bind:webSearchEnabled
-											bind:imageGenerationEnabled
-											bind:codeInterpreterEnabled
-											bind:codeExecutionEnabled
-											bind:stableDiffusionEnabled
-											bind:thinkingEnabled
-											closeOnOutsideClick={integrationsMenuCloseOnOutsideClick}
-											onShowValves={(e) => {
-												const { type, id } = e;
-												selectedValvesType = type;
-												selectedValvesItemId = id;
-												showValvesModal = true;
-												integrationsMenuCloseOnOutsideClick = false;
-											}}
-											onClose={async () => {
-												await tick();
-
-												const chatInput = document.getElementById('chat-input');
-												chatInput?.focus();
-											}}
-										>
-											<div
-												id="integration-menu-button"
-												class="bg-transparent hover:bg-gray-100 text-gray-700 dark:text-white dark:hover:bg-gray-800 rounded-full size-8 flex justify-center items-center outline-hidden focus:outline-hidden"
-											>
-												<svg xmlns="http://www.w3.org/2000/svg" class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
-											</div>
-										</IntegrationsMenu>
-									{/if}
-
+										<PlusAlt className="size-5.5" />
+									</div>
+								</InputMenu>
 									{#if selectedModelIds.length === 1 && $models.find((m) => m.id === selectedModelIds[0])?.has_user_valves}
 										<div class="ml-1 flex gap-1.5">
 											<Tooltip content={$i18n.t('Valves')} placement="top">
@@ -1707,14 +1729,13 @@
 
 										{#each selectedFilterIds as filterId}
 											{@const filter = toggleFilters.find((f) => f.id === filterId)}
-											{#if filter}
-												<Tooltip content={filter?.name} placement="top">
+											{#if filter}												<Tooltip content={filter?.name} placement="top">
 													<button
 														on:click|preventDefault={() => {
 															selectedFilterIds = selectedFilterIds.filter((id) => id !== filterId);
 														}}
 														type="button"
-														class="group p-[7px] flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {selectedFilterIds.includes(
+														class="group py-[7px] px-2.5 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {selectedFilterIds.includes(
 															filterId
 														)
 															? 'text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-600/10 border border-sky-200/40 dark:border-sky-500/20'
@@ -1734,7 +1755,7 @@
 														{:else}
 															<Sparkles className="size-4" strokeWidth="1.75" />
 														{/if}
-														<div class="hidden group-hover:block">
+														<div class="hidden group-hover:flex items-center">
 															<XMark className="size-4" strokeWidth="1.75" />
 														</div>
 													</button>
@@ -1747,13 +1768,14 @@
 												<button
 													on:click|preventDefault={() => (webSearchEnabled = !webSearchEnabled)}
 													type="button"
-													class="group p-[7px] flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {webSearchEnabled ||
+													class="group py-[7px] px-2.5 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {webSearchEnabled ||
 													($settings?.webSearch ?? false) === 'always'
 														? ' text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-600/10 border border-sky-200/40 dark:border-sky-500/20'
 														: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '}"
 												>
 													<GlobeAlt className="size-4" strokeWidth="1.75" />
-													<div class="hidden group-hover:block">
+													<span class="text-xs font-medium">Buscar</span>
+													<div class="hidden group-hover:flex items-center">
 														<XMark className="size-4" strokeWidth="1.75" />
 													</div>
 												</button>
@@ -1766,12 +1788,13 @@
 													on:click|preventDefault={() =>
 														(imageGenerationEnabled = !imageGenerationEnabled)}
 													type="button"
-													class="group p-[7px] flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {imageGenerationEnabled
+													class="group py-[7px] px-2.5 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden {imageGenerationEnabled
 														? ' text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-700/10 border border-sky-200/40 dark:border-sky-500/20'
 														: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '}"
 												>
 													<Photo className="size-4" strokeWidth="1.75" />
-													<div class="hidden group-hover:block">
+													<span class="text-xs font-medium">Imagem</span>
+													<div class="hidden group-hover:flex items-center">
 														<XMark className="size-4" strokeWidth="1.75" />
 													</div>
 												</button>
@@ -1788,7 +1811,7 @@
 													on:click|preventDefault={() =>
 														(codeInterpreterEnabled = !codeInterpreterEnabled)}
 													type="button"
-													class=" group p-[7px] flex gap-1.5 items-center text-sm transition-colors duration-300 max-w-full overflow-hidden {codeInterpreterEnabled
+													class=" group py-[7px] px-2.5 flex gap-1.5 items-center text-sm transition-colors duration-300 max-w-full overflow-hidden {codeInterpreterEnabled
 														? ' text-sky-500 dark:text-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-400/10 dark:hover:bg-sky-700/10 border border-sky-200/40 dark:border-sky-500/20'
 														: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '} {($settings?.highContrastMode ??
 													false)
@@ -1796,8 +1819,9 @@
 														: 'focus:outline-hidden rounded-full'}"
 												>
 													<Cloud className="size-4" strokeWidth="1.75" />
+													<span class="text-xs font-medium">Intérprete</span>
 
-													<div class="hidden group-hover:block">
+													<div class="hidden group-hover:flex items-center">
 														<XMark className="size-4" strokeWidth="1.75" />
 													</div>
 												</button>
@@ -1814,7 +1838,7 @@
 													on:click|preventDefault={() =>
 														(codeExecutionEnabled = !codeExecutionEnabled)}
 													type="button"
-													class=" group p-[7px] flex gap-1.5 items-center text-sm transition-colors duration-300 max-w-full overflow-hidden {codeExecutionEnabled
+													class=" group py-[7px] px-2.5 flex gap-1.5 items-center text-sm transition-colors duration-300 max-w-full overflow-hidden {codeExecutionEnabled
 														? ' text-emerald-500 dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-400/10 dark:hover:bg-emerald-700/10 border border-emerald-200/40 dark:border-emerald-500/20'
 														: 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 '} {($settings?.highContrastMode ??
 													false)
@@ -1822,8 +1846,9 @@
 														: 'focus:outline-hidden rounded-full'}"
 												>
 													<Code className="size-4" strokeWidth="1.75" />
+													<span class="text-xs font-medium">Artefatos</span>
 
-													<div class="hidden group-hover:block">
+													<div class="hidden group-hover:flex items-center">
 														<XMark className="size-4" strokeWidth="1.75" />
 													</div>
 												</button>
@@ -1836,12 +1861,13 @@
 													on:click|preventDefault={() =>
 														(stableDiffusionEnabled = !stableDiffusionEnabled)}
 													type="button"
-													class="group p-[7px] flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden text-pink-500 dark:text-pink-300 bg-pink-50 hover:bg-pink-100 dark:bg-pink-400/10 dark:hover:bg-pink-700/10 border border-pink-200/40 dark:border-pink-500/20"
+													class="group py-[7px] px-2.5 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden text-pink-500 dark:text-pink-300 bg-pink-50 hover:bg-pink-100 dark:bg-pink-400/10 dark:hover:bg-pink-700/10 border border-pink-200/40 dark:border-pink-500/20"
 												>
 													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
 														<path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75v-2.69l-2.22-2.219a.75.75 0 00-1.06 0l-1.91 1.909.47.47a.75.75 0 11-1.06 1.06L6.53 8.091a.75.75 0 00-1.06 0l-3.97 3.97zM12 7a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" />
 													</svg>
-													<div class="hidden group-hover:block">
+													<span class="text-xs font-medium">Imagem</span>
+													<div class="hidden group-hover:flex items-center">
 														<XMark className="size-4" strokeWidth="1.75" />
 													</div>
 												</button>
@@ -1900,10 +1926,10 @@
 											{/if}
 
 											{#if showThinkingButton}
-												<div class="relative flex items-center self-center mr-0.5" id="thinking-dropdown-container">
+												<div class="relative flex items-center self-center mr-3" id="thinking-dropdown-container">
 													<button
 														type="button"
-														class="flex items-center gap-1.5 px-2.5 py-1.5 font-medium rounded-full transition cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" style="font-size: 0.82rem;"
+														class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" style="font-size: 0.79rem; font-family: 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: 0.01em;"
 														on:click|stopPropagation={() => { showThinkingDropdown = !showThinkingDropdown; }}
 														aria-label={thinkingEnabled ? 'Raciocínio' : 'Rápido'}
 													>
@@ -1916,7 +1942,7 @@
 													{#if showThinkingDropdown}
 														<!-- svelte-ignore a11y-click-events-have-key-events -->
 														<!-- svelte-ignore a11y-no-static-element-interactions -->
-														<div class="absolute bottom-full mb-1.5 right-0 z-50 w-[11rem] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-850 shadow-lg py-1 text-sm" transition:fly={{ y: 5, duration: 150 }} on:click|stopPropagation>
+														<div class="absolute bottom-full mb-1.5 right-0 z-50 w-[11rem] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-850 shadow-lg py-1 text-sm" style="font-family: 'Segoe UI', sans-serif;" transition:fly={{ y: 5, duration: 150 }} on:click|stopPropagation>
 															<button
 																type="button"
 																class="flex w-full items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200"
@@ -1944,55 +1970,6 @@
 												</div>
 											{/if}
 
-											{#if $_user?.role === 'admin' || ($_user?.permissions?.chat?.stt ?? true)}
-												<!-- {$i18n.t('Record voice')} -->
-												<Tooltip content={$i18n.t('Dictate')}>
-													<button
-														id="voice-input-button"
-														class=" text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200 transition rounded-full p-1.5 self-center mr-0.5"
-														type="button"
-														on:click={async () => {
-															try {
-																let stream = await navigator.mediaDevices
-																	.getUserMedia({ audio: true })
-																	.catch(function (err) {
-																		toast.error(
-																			$i18n.t(
-																				`Permission denied when accessing microphone: {{error}}`,
-																				{
-																					error: err
-																				}
-																			)
-																		);
-																		return null;
-																	});
-
-																if (stream) {
-																	recording = true;
-																	const tracks = stream.getTracks();
-																	tracks.forEach((track) => track.stop());
-																}
-																stream = null;
-															} catch {
-																toast.error($i18n.t('Permission denied when accessing microphone'));
-															}
-														}}
-														aria-label="Voice Input"
-													>
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															viewBox="0 0 20 20"
-															fill="currentColor"
-															class="size-5 translate-y-[0.5px]"
-														>
-															<path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4z" />
-															<path
-																d="M5.5 9.643a.75.75 0 00-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-1.5v-1.546A6.001 6.001 0 0016 10v-.357a.75.75 0 00-1.5 0V10a4.5 4.5 0 01-9 0v-.357z"
-															/>
-														</svg>
-													</button>
-												</Tooltip>
-											{/if}
 										{/if}
 
 										<div class=" flex items-center">
@@ -2031,6 +2008,82 @@
 									{/if}
 								</div>
 							</div>
+							{:else}
+							<div class="pr-0.5 flex items-center gap-0.5 shrink-0">
+								{#if showThinkingButton}
+									<div class="relative flex items-center self-center mr-1" id="thinking-dropdown-container">
+										<button
+											type="button"
+											class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition cursor-pointer bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" style="font-size: 0.79rem; font-family: 'Segoe UI', sans-serif; font-weight: 400; letter-spacing: 0.01em;"
+											on:click|stopPropagation={() => { showThinkingDropdown = !showThinkingDropdown; }}
+											aria-label={thinkingEnabled ? 'Raciocínio' : 'Rápido'}
+										>
+											<span>{thinkingEnabled ? 'Raciocínio' : 'Rápido'}</span>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-3.5 transition-transform {showThinkingDropdown ? 'rotate-180' : ''}">
+												<path fill-rule="evenodd" d="M14.78 12.78a.75.75 0 0 1-1.06 0L10 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06Z" clip-rule="evenodd" />
+											</svg>
+										</button>
+										{#if showThinkingDropdown}
+											<!-- svelte-ignore a11y-click-events-have-key-events -->
+											<!-- svelte-ignore a11y-no-static-element-interactions -->
+											<div class="absolute bottom-full mb-1.5 right-0 z-50 w-[11rem] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-850 shadow-lg py-1 text-sm" style="font-family: 'Segoe UI', sans-serif;" transition:fly={{ y: 5, duration: 150 }} on:click|stopPropagation>
+												<button
+												  type="button"
+												  class="flex w-full items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200"
+												  on:click={() => { thinkingEnabled = false; showThinkingDropdown = false; }}
+												>
+												  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" /></svg>
+												  <span class="flex-1 text-left">Rápido</span>
+												  {#if !thinkingEnabled}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>{/if}
+												</button>
+												<button
+												  type="button"
+												  class="flex w-full items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-gray-700 dark:text-gray-200"
+												  on:click={() => { thinkingEnabled = true; showThinkingDropdown = false; }}
+												>
+												  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4"><path d="M12 2a7 7 0 0 0-7 7c0 2.862 1.782 5.3 4.25 6.318V17.5a.75.75 0 0 0 .75.75h4a.75.75 0 0 0 .75-.75v-2.182C17.218 14.3 19 11.862 19 9a7 7 0 0 0-7-7ZM9.25 19.75a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5h-5.5ZM9.75 22.75a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z" /></svg>
+												  <span class="flex-1 text-left">Raciocínio</span>
+												  {#if thinkingEnabled}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>{/if}
+												</button>
+											</div>
+										{/if}
+									</div>
+								{/if}
+								<div class="flex items-center">
+									<Tooltip
+										content={uploadPending
+											? $i18n.t('Waiting for upload...')
+											: $i18n.t('Send message')}
+									>
+										<button
+											id="send-message-button"
+											class="{!(prompt === '' && files.length === 0) || uploadPending
+												? 'bg-black text-white hover:bg-gray-900 dark:bg-white dark:text-black dark:hover:bg-gray-100 '
+												: 'text-white bg-gray-200 dark:text-gray-900 dark:bg-gray-700 disabled'} transition rounded-full p-1.5 self-center"
+											type="submit"
+											disabled={(prompt === '' && files.length === 0) || uploadPending}
+										>
+											{#if uploadPending}
+												<Spinner className="size-5" />
+											{:else}
+												<svg
+												  xmlns="http://www.w3.org/2000/svg"
+												  viewBox="0 0 16 16"
+												  fill="currentColor"
+												  class="size-5"
+												>
+												  <path
+												    fill-rule="evenodd"
+												    d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z"
+												    clip-rule="evenodd"
+												  />
+												</svg>
+											{/if}
+										</button>
+									</Tooltip>
+								</div>
+							</div>
+							{/if}
 						</div>
 
 						<div class="mb-1" />

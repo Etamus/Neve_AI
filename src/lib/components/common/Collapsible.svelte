@@ -170,7 +170,7 @@
 
 	{#if !grow}
 		{#if open && !hide}
-			<div transition:slide={{ duration: 300, easing: quintOut, axis: 'y' }}>
+			<div class="overflow-hidden" transition:slide={{ duration: 300, easing: quintOut, axis: 'y' }}>
 				<slot name="content" />
 			</div>
 		{/if}

@@ -35,7 +35,6 @@
 		showSearch,
 		showSidebar,
 		showControls,
-		showAdminModelsModal,
 		mobile,
 		loadShortCodesToEmojis
 	} from '$lib/stores';
@@ -43,7 +42,6 @@
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import SettingsModal from '$lib/components/chat/SettingsModal.svelte';
 	import Modal from '$lib/components/common/Modal.svelte';
-	import AdminModels from '$lib/components/admin/Settings/Models.svelte';
 	import AccountPending from '$lib/components/layout/Overlay/AccountPending.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { Shortcut, shortcuts } from '$lib/shortcuts';
@@ -365,11 +363,7 @@
 
 <SettingsModal bind:show={$showSettings} />
 
-<Modal size="md" bind:show={$showAdminModelsModal}>
-	<div class="flex flex-col max-h-[80vh] p-4">
-		<AdminModels />
-	</div>
-</Modal>
+
 
 {#if $user}
 	<div class="app relative">

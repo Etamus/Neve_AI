@@ -9,7 +9,7 @@
 	import { getUsage } from '$lib/apis';
 	import { getSessionUser, userSignOut } from '$lib/apis/auths';
 
-	import { showSettings, showAdminModelsModal, mobile, showSidebar, user, config } from '$lib/stores';
+	import { showSettings, showLocalModelsModal, mobile, showSidebar, user, config } from '$lib/stores';
 
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
 
@@ -20,6 +20,7 @@
 	import UserGroup from '$lib/components/icons/UserGroup.svelte';
 	import SignOut from '$lib/components/icons/SignOut.svelte';
 	import FaceSmile from '$lib/components/icons/FaceSmile.svelte';
+	import { shutdownApp } from '$lib/apis';
 	import UserStatusModal from './UserStatusModal.svelte';
 	import Emoji from '$lib/components/common/Emoji.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
@@ -34,7 +35,7 @@
 	export let profile = false;
 	export let help = false;
 
-	export let className = 'max-w-[15rem]';
+	export let className = 'max-w-[10rem]';
 	export let align = 'end';
 
 	export let showActiveUsers = true;
@@ -83,18 +84,19 @@
 
 	<slot name="content">
 		<DropdownMenu.Content
-			class="w-full {className}  rounded-2xl px-1 py-1  border border-gray-100  dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg text-sm"
+				class="w-full {className}  rounded-2xl px-1 py-0.5  border border-gray-100  dark:border-gray-800 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg text-sm"
 			sideOffset={4}
 			side="top"
-			{align}
+			align="start"
+			avoidCollisions={false}
 			transition={(e) => fade(e, { duration: 100 })}
 		>
 			{#if profile}
-				<div class=" flex gap-3.5 w-full p-2.5 items-center">
+				<div class=" flex gap-3.5 w-full p-1.5 items-center">
 					<div class=" items-center flex shrink-0">
 						<img
 							src={`${WEBUI_API_BASE_URL}/users/${$user?.id}/profile/image`}
-							class=" size-10 object-cover rounded-full"
+						class=" size-8 object-cover rounded-full"
 							alt="profile"
 						/>
 					</div>
@@ -195,61 +197,46 @@
 					</div>
 				{/if}
 
-				<hr class=" border-gray-50/30 dark:border-gray-800/30 my-1.5 p-0" />
+					<hr class=" border-gray-50/30 dark:border-gray-800/30 my-1 p-0" />
 			{/if}
 
-			{#if role === 'admin'}
+
+
+			<div class="flex flex-col items-stretch px-1 py-0.5 gap-0.5">
 				<DropdownMenu.Item
-					class="flex items-center mt-1.5 rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer select-none"
-					on:click={() => {
+					class="flex items-center rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer select-none"
+					on:click={async () => {
 						show = false;
-						showAdminModelsModal.set(true);
+
+						await showSettings.set(true);
+
+						if ($mobile) {
+							await tick();
+							showSidebar.set(false);
+						}
 					}}
 				>
-					<div class=" self-center mr-3">
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-							<path fill-rule="evenodd" d="M10 1c3.866 0 7 1.79 7 4s-3.134 4-7 4-7-1.79-7-4 3.134-4 7-4zm5.694 8.13c.464-.264.91-.583 1.306-.952V10c0 2.21-3.134 4-7 4s-7-1.79-7-4V8.178c.396.37.842.688 1.306.953C5.838 10.006 7.854 10.5 10 10.5s4.162-.494 5.694-1.37zM3 13.179V15c0 2.21 3.134 4 7 4s7-1.79 7-4v-1.822c-.396.37-.842.688-1.306.953-1.532.875-3.548 1.369-5.694 1.369s-4.162-.494-5.694-1.37A7.009 7.009 0 013 13.179z" clip-rule="evenodd" />
-						</svg>
+					<div class="flex items-center gap-3">
+						<Settings className="w-5 h-5" strokeWidth="1.5" />
+						<span class="text-xs">{$i18n.t('Settings')}</span>
 					</div>
-					<div class=" self-center truncate">{$i18n.t('Models')}</div>
 				</DropdownMenu.Item>
-			{/if}
 
-			<DropdownMenu.Item
-				class="flex items-center mt-1.5 rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer select-none"
-				on:click={async () => {
-					show = false;
-
-					await showSettings.set(true);
-
-					if ($mobile) {
-						await tick();
-						showSidebar.set(false);
-					}
-				}}
-			>
-				<div class=" self-center mr-3">
-					<Settings className="w-5 h-5" strokeWidth="1.5" />
-				</div>
-				<div class=" self-center truncate">{$i18n.t('Settings')}</div>
-			</DropdownMenu.Item>
-
-<!-- Admin Panel button removed -->
-
-			{#if help}
-				<hr class=" border-gray-50/30 dark:border-gray-800/30 my-1 p-0" />
-
-				<!-- {$i18n.t('Help')} -->
-
-				{#if $user?.role === 'admin'}
-				<!-- Documentation and Releases menu items removed -->
-			{/if}
-
-			{/if}
-
-			<hr class=" border-gray-50/30 dark:border-gray-800/30 my-1 p-0" />
-
-			<!-- Botão Sair removido -->
+				<DropdownMenu.Item
+					class="flex items-center rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer select-none"
+					on:click={async () => {
+						show = false;
+						await shutdownApp(localStorage.token);
+					}}
+				>
+					<div class="flex items-center gap-3">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1 0 12.728 0M12 3v9" />
+						</svg>
+						<span class="text-xs">{$i18n.t('Sair')}</span>
+					</div>
+				</DropdownMenu.Item>
+			</div>
 		</DropdownMenu.Content>
 	</slot>
 </DropdownMenu.Root>

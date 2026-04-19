@@ -1,0 +1,886 @@
+<script lang="ts">
+	import { onMount, onDestroy, getContext } from 'svelte';
+	import { marked } from 'marked';
+	import fileSaver from 'file-saver';
+	const { saveAs } = fileSaver;
+	const i18n = getContext('i18n');
+
+	import { config, models as _models, settings, user, showSettingsModelId } from '$lib/stores';
+	import { WEBUI_API_BASE_URL } from '$lib/constants';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+
+	import {
+		getLocalModels,
+		getMmProjFiles,
+		loadLocalModel,
+		unloadLocalModel,
+		type LocalModel
+	} from '$lib/apis/llamacpp';
+
+	import {
+		createNewModel,
+		getBaseModels,
+		toggleModelById,
+		updateModelById,
+		importModels
+	} from '$lib/apis/models';
+	import { getModels } from '$lib/apis';
+	import { updateUserSettings } from '$lib/apis/users';
+	import { toast } from 'svelte-sonner';
+	import { DropdownMenu } from 'bits-ui';
+	import { flyAndScale } from '$lib/utils/transitions';
+
+	import ModelSettingsModal from '$lib/components/admin/Settings/Models/ModelSettingsModal.svelte';
+	import ManageModelsModal from '$lib/components/admin/Settings/Models/ManageModelsModal.svelte';
+	import ModelEditor from '$lib/components/workspace/Models/ModelEditor.svelte';
+	import ModelMenu from '$lib/components/admin/Settings/Models/ModelMenu.svelte';
+	import Pagination from '$lib/components/common/Pagination.svelte';
+	import Switch from '$lib/components/common/Switch.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Dropdown from '$lib/components/common/Dropdown.svelte';
+	import Spinner from '$lib/components/common/Spinner.svelte';
+	import XMark from '$lib/components/icons/XMark.svelte';
+	import Search from '$lib/components/icons/Search.svelte';
+	import EllipsisHorizontal from '$lib/components/icons/EllipsisHorizontal.svelte';
+	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
+	import Eye from '$lib/components/icons/Eye.svelte';
+	import CheckCircle from '$lib/components/icons/CheckCircle.svelte';
+	import Minus from '$lib/components/icons/Minus.svelte';
+
+	// ─── LOCAL MODEL STATE ───────────────────────────────────────────────────
+	let localModels: LocalModel[] = [];
+	let mmProjFiles: string[] = [];
+	let localLoading = false;
+	let loadingModels: Set<string> = new Set();
+	let localError = '';
+	let localSuccess = '';
+
+	let confirmVisionCallback: { onNo: () => void; onYes: () => void } | null = null;
+	let mmProjSelectorModel: LocalModel | null = null;
+	let mmProjSelectedFile: string = '';
+
+	let gpuLayers: number = -1;
+	let contextSize: number = 8192;
+
+	let contextModalModel: LocalModel | null = null;
+	let contextModalSize: number = 8192;
+
+	// ─── ADMIN MODEL STATE ───────────────────────────────────────────────────
+	let shiftKey = false;
+	let modelsImportInProgress = false;
+	let importFiles: FileList;
+	let modelsImportInputElement: HTMLInputElement;
+
+	let adminModels: any[] = [];
+	let workspaceModels: any[] | null = null;
+	let baseModels: any[] | null = null;
+	let selectedModelId: string | null = null;
+	let showConfigModal = false;
+	let showManageModal = false;
+	let viewOption = '';
+
+	const perPage = 30;
+	let currentPage = 1;
+
+	// ─── SHARED SEARCH ──────────────────────────────────────────────────────
+	let searchValue = '';
+
+	// ─── COMPUTED ────────────────────────────────────────────────────────────
+	$: filteredLocalModels = localModels.filter(
+		(m) => searchValue === '' || m.filename.toLowerCase().includes(searchValue.toLowerCase())
+	);
+
+	$: filteredAdminModels = (adminModels ?? [])
+		.filter(
+			(m) =>
+				searchValue === '' ||
+				(m.name ?? '').toLowerCase().includes(searchValue.toLowerCase()) ||
+				(m.id ?? '').toLowerCase().includes(searchValue.toLowerCase())
+		)
+		.filter((m) => {
+			if (viewOption === 'enabled') return m?.is_active ?? true;
+			if (viewOption === 'disabled') return !(m?.is_active ?? true);
+			if (viewOption === 'visible') return !(m?.meta?.hidden ?? false);
+			if (viewOption === 'hidden') return m?.meta?.hidden === true;
+			return true;
+		})
+		.sort((a, b) => (a?.name ?? a?.id ?? '').localeCompare(b?.name ?? b?.id ?? ''));
+
+	// Merged single list: GGUFs first (loaded then unloaded), then admin-only models
+	// Loaded GGUFs appear ONCE with both load controls and admin controls
+	$: mergedModels = (() => {
+		const adminById = new Map((adminModels ?? []).map((m: any) => [m.id, m]));
+		const ggufIds = new Set(localModels.map((gm) => gm.id).filter(Boolean));
+		const q = searchValue.toLowerCase();
+
+		const ggufItems = localModels
+			.filter((gm) => !q || gm.filename.toLowerCase().includes(q))
+			.map((gm) => ({ key: `gguf:${gm.id ?? gm.filename}`, gguf: gm, admin: adminById.get(gm.id) ?? null }));
+
+		const adminOnlyItems = (adminModels ?? [])
+			.filter((am: any) => !ggufIds.has(am.id))
+			.filter((am: any) => !q || (am.name ?? '').toLowerCase().includes(q) || (am.id ?? '').toLowerCase().includes(q))
+			.filter((am: any) => {
+				if (viewOption === 'enabled') return am?.is_active ?? true;
+				if (viewOption === 'disabled') return !(am?.is_active ?? true);
+				if (viewOption === 'visible') return !(am?.meta?.hidden ?? false);
+				if (viewOption === 'hidden') return am?.meta?.hidden === true;
+				return true;
+			})
+			.sort((a: any, b: any) => (a?.name ?? a?.id ?? '').localeCompare(b?.name ?? b?.id ?? ''))
+			.map((am: any) => ({ key: `admin:${am.id}`, gguf: null, admin: am }));
+
+		return [...ggufItems, ...adminOnlyItems];
+	})();
+
+	$: if (searchValue || viewOption !== undefined) {
+		currentPage = 1;
+	}
+
+	// ─── LOCAL MODEL FUNCTIONS ───────────────────────────────────────────────
+	async function refreshLocalModels() {
+		localLoading = true;
+		localError = '';
+		try {
+			[localModels, mmProjFiles] = await Promise.all([
+				getLocalModels(localStorage.token),
+				getMmProjFiles(localStorage.token)
+			]);
+		} catch (e: any) {
+			localError =
+				e.message === 'Failed to fetch'
+					? 'Falha ao buscar'
+					: e.message || 'Erro ao buscar modelos locais';
+		} finally {
+			localLoading = false;
+		}
+	}
+
+	async function handleLoad(model: LocalModel) {
+		loadingModels = new Set([...loadingModels, model.filename]);
+		localError = '';
+		localSuccess = '';
+		try {
+			const ct = localStorage.getItem('llamacpp_cache_type') || 'q8_0';
+			await loadLocalModel(localStorage.token, model.filename, gpuLayers, contextSize, '', ct);
+			localSuccess = `${model.filename} carregado com sucesso!`;
+			await refreshLocalModels();
+			_models.set(await getModels(localStorage.token));
+			await initAdmin();
+		} catch (e: any) {
+			localError = e.message || 'Erro ao carregar modelo';
+		} finally {
+			loadingModels = new Set([...loadingModels].filter((f) => f !== model.filename));
+		}
+	}
+
+	function startLoadWithContextModal(model: LocalModel) {
+		contextModalModel = model;
+		contextModalSize = 8192;
+	}
+
+	function confirmContextAndProceed() {
+		const model = contextModalModel;
+		if (!model) return;
+		contextSize = contextModalSize;
+		contextModalModel = null;
+		if (mmProjFiles.length > 0) {
+			confirmVisionCallback = {
+				onNo: () => handleLoad(model),
+				onYes: () => {
+					mmProjSelectorModel = model;
+					mmProjSelectedFile = '';
+				}
+			};
+		} else {
+			handleLoad(model);
+		}
+	}
+
+	function openVisionSelector(model: LocalModel) {
+		if (mmProjFiles.length > 0) {
+			confirmVisionCallback = {
+				onNo: () => {},
+				onYes: () => {
+					mmProjSelectorModel = model;
+					mmProjSelectedFile = model.mmproj_filename ?? '';
+				}
+			};
+		}
+	}
+
+	async function handleLoadWithSelectedMmproj() {
+		const model = mmProjSelectorModel;
+		if (!model) return;
+		mmProjSelectorModel = null;
+		loadingModels = new Set([...loadingModels, model.filename]);
+		localError = '';
+		localSuccess = '';
+		try {
+			const ct = localStorage.getItem('llamacpp_cache_type') || 'q8_0';
+			await loadLocalModel(
+				localStorage.token,
+				model.filename,
+				gpuLayers,
+				contextSize,
+				mmProjSelectedFile || null,
+				ct
+			);
+			localSuccess = `${model.filename} carregado!${mmProjSelectedFile ? ` (visão: ${mmProjSelectedFile})` : ' (somente texto)'}`;
+			await refreshLocalModels();
+			_models.set(await getModels(localStorage.token));
+			await initAdmin();
+		} catch (e: any) {
+			localError = e.message || 'Erro ao carregar modelo';
+		} finally {
+			loadingModels = new Set([...loadingModels].filter((f) => f !== model.filename));
+		}
+	}
+
+	async function handleUnload(model: LocalModel) {
+		loadingModels = new Set([...loadingModels, model.filename]);
+		localError = '';
+		localSuccess = '';
+		try {
+			await unloadLocalModel(localStorage.token, model.id);
+			localSuccess = `${model.filename} descarregado.`;
+			await refreshLocalModels();
+			_models.set(await getModels(localStorage.token));
+			await initAdmin();
+		} catch (e: any) {
+			localError = e.message || 'Erro ao descarregar modelo';
+		} finally {
+			loadingModels = new Set([...loadingModels].filter((f) => f !== model.filename));
+		}
+	}
+
+	// ─── ADMIN MODEL FUNCTIONS ───────────────────────────────────────────────
+	const initAdmin = async () => {
+		try {
+			baseModels = [...$_models];
+			try {
+				const res = await getBaseModels(localStorage.token);
+				workspaceModels = Array.isArray(res) ? res : [];
+			} catch (e) {
+				workspaceModels = [];
+			}
+			const baseIds = new Set(baseModels.map((m: any) => m.id));
+			// Local GGUF IDs that currently exist on disk
+			const localIds = new Set(localModels.map((gm) => gm.id).filter(Boolean));
+			// Only include workspace models whose backing resource still exists:
+			// either currently active in $_models, or a local GGUF file still on disk.
+			const validIds = new Set([
+				...baseIds,
+				...workspaceModels
+					.filter((wm: any) => baseIds.has(wm.id) || localIds.has(wm.id))
+					.map((wm: any) => wm.id)
+			]);
+			adminModels = [...validIds]
+				.map((id: string) => {
+					const base = baseModels.find((m: any) => m.id === id);
+					const wm = workspaceModels.find((m: any) => m.id === id);
+					if (base && wm) return { ...base, ...wm };
+					if (wm) return { ...wm };
+					if (base) return { ...base, is_active: true };
+					return null;
+				})
+				.filter((m): m is any => m !== null);
+
+			// Synthetic entries for GGUF files on disk not yet registered in the DB.
+			// Without this, brand-new files show only the "Carregar" button and
+			// never get the edit pencil, "..." menu, or toggle controls.
+			const registeredIds = new Set(adminModels.map((m: any) => m.id));
+			adminModels = [
+				...adminModels,
+				...localModels
+					.filter((gm) => gm.id && !registeredIds.has(gm.id))
+					.map((gm) => ({
+						id: gm.id,
+						name: gm.filename.replace(/\.gguf$/i, ''),
+						meta: {},
+						params: {},
+						is_active: true,
+					}))
+			];
+		} catch (e) {
+			console.error('[UnifiedModels] initAdmin error:', e);
+			if (adminModels.length === 0) adminModels = baseModels ?? [];
+		}
+	};
+
+	const upsertModelHandler = async (model: any, showToast = true) => {
+		if ((workspaceModels ?? []).find((m) => m.id === model.id)) {
+			const res = await updateModelById(localStorage.token, model.id, model).catch(() => null);
+			if (res && showToast) toast.success($i18n.t('Model updated successfully'));
+		} else {
+			const res = await createNewModel(localStorage.token, {
+				meta: {},
+				id: model.id,
+				name: model.name,
+				base_model_id: null,
+				params: {},
+				access_grants: [],
+				...model
+			}).catch(() => null);
+			if (res && showToast) toast.success($i18n.t('Model updated successfully'));
+		}
+		await initAdmin();
+		_models.set(
+			await getModels(
+				localStorage.token,
+				$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+			)
+		);
+	};
+
+	const toggleModelHandler = async (model: any) => {
+		if (!Object.keys(model).includes('base_model_id')) {
+			await createNewModel(localStorage.token, {
+				id: model.id,
+				name: model.name,
+				base_model_id: null,
+				meta: {},
+				params: {},
+				access_grants: [],
+				is_active: model.is_active
+			}).catch(() => null);
+		} else {
+			await toggleModelById(localStorage.token, model.id);
+		}
+		_models.set(
+			await getModels(
+				localStorage.token,
+				$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+			)
+		);
+		await initAdmin();
+	};
+
+	const hideModelHandler = async (model: any) => {
+		model.meta = { ...model.meta, hidden: !(model?.meta?.hidden ?? false) };
+		upsertModelHandler(model, false);
+		toast.success(
+			model.meta.hidden
+				? $i18n.t('Model {{name}} is now hidden', { name: model.id })
+				: $i18n.t('Model {{name}} is now visible', { name: model.id })
+		);
+	};
+
+	const enableAllHandler = async () => {
+		const toEnable = filteredAdminModels.filter((m) => !(m.is_active ?? true));
+		toEnable.forEach((m) => (m.is_active = true));
+		adminModels = adminModels;
+		await Promise.all(toEnable.map((m) => toggleModelById(localStorage.token, m.id)));
+	};
+
+	const disableAllHandler = async () => {
+		const toDisable = filteredAdminModels.filter((m) => m.is_active ?? true);
+		toDisable.forEach((m) => (m.is_active = false));
+		adminModels = adminModels;
+		await Promise.all(toDisable.map((m) => toggleModelById(localStorage.token, m.id)));
+	};
+
+	const exportModelHandler = async (model: any) => {
+		const blob = new Blob([JSON.stringify([model])], { type: 'application/json' });
+		saveAs(blob, `${model.id}-${Date.now()}.json`);
+	};
+
+	const cloneHandler = async (model: any) => {
+		sessionStorage.model = JSON.stringify({
+			...model,
+			base_model_id: model.id,
+			id: `${model.id}-clone`,
+			name: `${model.name} (Clone)`
+		});
+		goto('/workspace/models/create');
+	};
+
+	const pinModelHandler = async (modelId: string) => {
+		let pinnedModels = $settings?.pinnedModels ?? [];
+		if (pinnedModels.includes(modelId)) {
+			pinnedModels = pinnedModels.filter((id) => id !== modelId);
+		} else {
+			pinnedModels = [...new Set([...pinnedModels, modelId])];
+		}
+		settings.set({ ...$settings, pinnedModels });
+		await updateUserSettings(localStorage.token, { ui: $settings });
+	};
+
+	onMount(async () => {
+		// refreshLocalModels must complete first so localModels is ready for initAdmin
+		await refreshLocalModels();
+		await initAdmin();
+
+		// Auto-refresh: poll for new GGUF files every 3 seconds
+		const pollInterval = setInterval(async () => {
+			await refreshLocalModels();
+			await initAdmin();
+		}, 3000);
+
+		const id = $page.url.searchParams.get('id') || $showSettingsModelId;
+		if (id) {
+			selectedModelId = id;
+			showSettingsModelId.set('');
+		}
+
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Shift') shiftKey = true;
+		};
+		const onKeyUp = (e: KeyboardEvent) => {
+			if (e.key === 'Shift') shiftKey = false;
+		};
+		const onBlur = () => {
+			shiftKey = false;
+		};
+
+		window.addEventListener('keydown', onKeyDown);
+		window.addEventListener('keyup', onKeyUp);
+		window.addEventListener('blur', onBlur);
+
+		return () => {
+			clearInterval(pollInterval);
+			window.removeEventListener('keydown', onKeyDown);
+			window.removeEventListener('keyup', onKeyUp);
+			window.removeEventListener('blur', onBlur);
+		};
+	});
+</script>
+
+<!-- ─── Vision confirmation overlay ──────────────────────────────────────── -->
+{#if confirmVisionCallback}
+	<div class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+		<div class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-xl mx-4 w-72 flex flex-col gap-3">
+			<div class="flex items-center gap-2">
+				<div class="size-8 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+					<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
+					</svg>
+				</div>
+				<p class="text-sm font-semibold text-gray-900 dark:text-white">Deseja carregar a visão?</p>
+			</div>
+			<p class="text-xs text-gray-500 dark:text-gray-400">O modelo será carregado com suporte a análise de imagens.</p>
+			<div class="flex justify-end gap-2 mt-1">
+				<button
+					class="px-4 py-1.5 text-xs rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium"
+					on:click={() => { const cb = confirmVisionCallback; confirmVisionCallback = null; cb?.onNo(); }}
+				>Não</button>
+				<button
+					class="px-4 py-1.5 text-xs rounded-xl bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
+					on:click={() => { const cb = confirmVisionCallback; confirmVisionCallback = null; cb?.onYes(); }}
+				>Sim</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- ─── mmproj selector overlay ──────────────────────────────────────────── -->
+{#if mmProjSelectorModel}
+	<div class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+		<div class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-xl mx-4 w-80 flex flex-col gap-3">
+			<p class="text-sm font-semibold text-gray-900 dark:text-white">Selecionar módulo de visão</p>
+			<div class="flex flex-col gap-1.5 max-h-80 overflow-y-auto scrollbar-none">
+				{#each mmProjFiles as f}
+					<button
+						class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-left transition {mmProjSelectedFile === f ? 'bg-black text-white dark:bg-white dark:text-black font-medium' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+						on:click={() => (mmProjSelectedFile = f)}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
+						</svg>
+						{f}
+					</button>
+				{/each}
+			</div>
+			<div class="flex justify-end gap-2">
+				<button
+					class="px-4 py-1.5 text-xs rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+					on:click={() => (mmProjSelectorModel = null)}
+				>Cancelar</button>
+				<button
+					class="px-4 py-1.5 text-xs rounded-xl bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium disabled:opacity-40"
+					disabled={!mmProjSelectedFile}
+					on:click={handleLoadWithSelectedMmproj}
+				>Carregar</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- ─── Context size overlay ──────────────────────────────────────────────── -->
+{#if contextModalModel}
+	<div class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+		<div class="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-xl mx-4 w-80 flex flex-col gap-3">
+			<div class="flex items-center gap-2">
+				<div class="size-8 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+					<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+					</svg>
+				</div>
+				<p class="text-sm font-semibold text-gray-900 dark:text-white">Tamanho do Contexto</p>
+			</div>
+			<p class="text-xs text-gray-500 dark:text-gray-400">
+				Selecione o tamanho do contexto em tokens para
+				<span class="font-medium text-gray-700 dark:text-gray-300">{contextModalModel.filename.replace('.gguf', '')}</span>
+			</p>
+			<div class="flex flex-col gap-1.5 max-h-72 overflow-y-auto scrollbar-none">
+				{#each [2048, 4096, 8192, 16384, 32768, 65536] as sz}
+					<button
+						class="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition {contextModalSize === sz ? 'bg-black text-white dark:bg-white dark:text-black font-medium' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+						on:click={() => (contextModalSize = sz)}
+					>
+						<span>{sz.toLocaleString()} tokens</span>
+						{#if sz === 8192}
+							<span class="text-[10px] opacity-60">(padrão)</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+			<div class="flex justify-end gap-2 mt-1">
+				<button
+					class="px-4 py-1.5 text-xs rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium"
+					on:click={() => (contextModalModel = null)}
+				>Cancelar</button>
+				<button
+					class="px-4 py-1.5 text-xs rounded-xl bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
+					on:click={confirmContextAndProceed}
+				>Confirmar</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<ModelSettingsModal bind:show={showConfigModal} initHandler={initAdmin} />
+<ManageModelsModal bind:show={showManageModal} />
+
+{#if true}
+	{#if selectedModelId === null}
+		<div class="flex flex-col w-full max-h-[80vh]">
+
+			<!-- Header -->
+			<div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+				<div class="flex items-center gap-2 text-xl font-medium px-0.5">
+					<span>Modelos</span>
+					<span class="text-lg font-medium text-gray-500 dark:text-gray-500">
+					{mergedModels.length}
+					</span>
+				</div>
+
+				<div class="flex items-center gap-1.5">
+					{#if $user?.role === 'admin'}
+						<!-- Hidden file input for import -->
+						<input
+							id="models-import-input"
+							bind:this={modelsImportInputElement}
+							bind:files={importFiles}
+							type="file"
+							accept=".json"
+							hidden
+							on:change={() => {
+								if (importFiles.length > 0) {
+									const reader = new FileReader();
+									reader.onload = async (event) => {
+										modelsImportInProgress = true;
+										try {
+											const models = JSON.parse(String(event.target.result));
+											const res = await importModels(localStorage.token, models);
+											if (res) {
+												toast.success($i18n.t('Models imported successfully'));
+												await initAdmin();
+											} else {
+												toast.error($i18n.t('Failed to import models'));
+											}
+										} catch (e) {
+											toast.error(e?.detail ?? $i18n.t('Invalid JSON file'));
+										}
+										modelsImportInProgress = false;
+									};
+									reader.readAsText(importFiles[0]);
+								}
+							}}
+						/>
+
+						<button
+							class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 dark:text-gray-200 transition"
+							disabled={modelsImportInProgress}
+							on:click={() => modelsImportInputElement.click()}
+						>
+							{#if modelsImportInProgress}
+								<Spinner className="size-3" />
+							{/if}
+							<span class="font-medium">{$i18n.t('Import')}</span>
+						</button>
+
+						<button
+							class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 dark:text-gray-200 transition"
+							on:click={() => {
+								const blob = new Blob([JSON.stringify(adminModels)], { type: 'application/json' });
+								saveAs(blob, `models-export-${Date.now()}.json`);
+							}}
+						>
+							<span class="font-medium">{$i18n.t('Export')}</span>
+						</button>
+					{/if}
+
+					<button
+						class="flex text-xs items-center gap-1 px-3 py-1.5 rounded-xl bg-black hover:bg-gray-900 text-white dark:bg-white dark:hover:bg-gray-100 dark:text-black transition font-medium"
+						type="button"
+						on:click={() => (showConfigModal = true)}
+					>
+						<span>{$i18n.t('Settings')}</span>
+					</button>
+				</div>
+			</div>
+
+			<!-- Scrollable list -->
+			<div class="overflow-y-auto flex-1 min-h-0 px-3.5 pb-4">
+				<div class="py-2 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100/30 dark:border-gray-850/30">
+
+					<!-- Search bar -->
+					<div class="px-3.5 flex flex-1 items-center w-full space-x-2 py-0.5 pb-2">
+						<div class="flex flex-1 items-center">
+							<div class="self-center ml-1 mr-3">
+								<Search className="size-3.5" />
+							</div>
+							<input
+								class="w-full text-sm py-1 rounded-r-xl outline-hidden bg-transparent"
+								bind:value={searchValue}
+								placeholder={$i18n.t('Search Models')}
+							/>
+							{#if searchValue}
+								<div class="self-center pl-1.5 translate-y-[0.5px]">
+									<button
+										class="p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+										on:click={() => (searchValue = '')}
+									>
+										<XMark className="size-3" strokeWidth="2" />
+									</button>
+								</div>
+							{/if}
+						</div>
+					</div>
+
+					<!-- ─── UNIFIED MODEL LIST ──────────────────────────────────── -->
+					{#if localLoading && localModels.length === 0 && (adminModels?.length ?? 0) === 0}
+						<div class="flex items-center justify-center py-8 text-gray-400 text-sm">
+							<svg class="w-4 h-4 animate-spin mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+							</svg>
+							Buscando modelos...
+						</div>
+					{:else if mergedModels.length === 0}
+						<div class="w-full flex flex-col justify-center items-center my-12 mb-20">
+							<div class="max-w-md text-center">
+								<div class="text-lg font-medium mb-1">{$i18n.t('No models found')}</div>
+								<div class="text-gray-500 text-center text-xs">
+									{$i18n.t('Try adjusting your search or filter to find what you are looking for.')}
+								</div>
+							</div>
+						</div>
+					{:else}
+						{#each mergedModels.slice((currentPage - 1) * perPage, currentPage * perPage) as item (item.key)}
+							{@const gm = item.gguf}
+							{@const am = item.admin}
+							{@const isProcessing = gm && loadingModels.has(gm.filename)}
+							<div
+								class="flex w-full px-3 py-0.5 {(am?.meta?.hidden || (am && !(am?.is_active ?? true))) ? 'opacity-50' : ''}"
+								id={am ? `model-item-${am.id}` : undefined}
+							>
+								<div class="flex gap-3 w-full px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-850/50 rounded-2xl transition">
+
+									<!-- Avatar -->
+									<div class="self-center flex-shrink-0">
+										{#if am}
+											<div class="w-9 h-9 rounded-full overflow-hidden {(am?.is_active ?? true) ? '' : 'opacity-50'}">
+												<img
+													src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${am.id}`}
+													alt="model"
+													class="w-full h-full object-cover"
+												/>
+											</div>
+										{:else}
+											<!-- GGUF not yet loaded/registered -->
+											<div class="size-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+												<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+													<path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+												</svg>
+											</div>
+										{/if}
+									</div>
+
+									<!-- Info -->
+									<div class="flex-1 min-w-0 self-center">
+										<div class="w-full text-left cursor-default">
+											<div class="flex items-center gap-1.5 flex-wrap">
+												<span class="font-medium text-sm line-clamp-1">
+													{am?.name ?? gm?.filename?.replace('.gguf', '') ?? ''}
+												</span>
+												{#if gm?.is_loaded && gm?.mmproj_filename}
+													<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium shrink-0">Visão</span>
+												{/if}
+											</div>
+											<div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5 flex items-center gap-2">
+												{#if gm}
+													<span>{gm.file_size_human}</span>
+													{#if gm.is_loaded && gm.n_gpu_layers !== null}
+														<span>GPU: {gm.n_gpu_layers === -1 ? 'Todas' : gm.n_gpu_layers} · CTX: {gm.n_ctx}</span>
+													{/if}
+												{:else if am}
+													<span class="line-clamp-1">
+														{!!am?.meta?.description
+															? am?.meta?.description
+															: am?.ollama?.digest
+																? `${am.id} (${am?.ollama?.digest})`
+																: am.id}
+													</span>
+												{/if}
+											</div>
+										</div>
+									</div>
+
+									<!-- Actions -->
+									<div class="flex items-center gap-0.5 flex-shrink-0 self-center">
+
+										<!-- GGUF load/unload controls -->
+										{#if gm}
+											{#if isProcessing}
+												<div class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500">
+													<svg class="w-3 h-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+														<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+														<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+													</svg>
+													Processando...
+												</div>
+											{:else if gm.is_loaded}
+												{#if mmProjFiles.length > 0}
+														<Tooltip content={gm.mmproj_filename ? 'Trocar visão' : 'Adicionar visão'}>
+															<button
+																class="flex items-center justify-center p-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-gray-600 dark:text-gray-400"
+																on:click={() => openVisionSelector(gm)}
+															>
+																<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+																	<path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.899L15 14M3 8h12v8H3z" />
+																</svg>
+															</button>
+														</Tooltip>
+												{/if}
+												<button
+													class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition text-gray-600 dark:text-gray-400"
+													on:click={() => handleUnload(gm)}
+												>
+													<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+														<path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+													</svg>
+													Descarregar
+												</button>
+											{:else}
+												<button
+													class="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-xl bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition font-medium"
+													on:click={() => startLoadWithContextModal(gm)}
+												>
+													<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+														<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+													</svg>
+													Carregar
+												</button>
+											{/if}
+										{/if}
+									<!-- separator entre controles GGUF e admin -->
+									{#if gm && am}<div class="w-3 flex-shrink-0"></div>{/if}
+										<!-- Admin controls (only if model is registered in the system) -->
+										{#if am}
+											{#if shiftKey}
+												<Tooltip content={am?.meta?.hidden ? $i18n.t('Show') : $i18n.t('Hide')}>
+													<button
+														class="self-center w-fit text-sm px-2 py-2 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
+														type="button"
+														on:click={() => hideModelHandler(am)}
+													>
+														{#if am?.meta?.hidden}
+															<EyeSlash />
+														{:else}
+															<Eye />
+														{/if}
+													</button>
+												</Tooltip>
+											{:else}
+												<button
+													class="self-center w-fit text-sm px-2 py-2 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
+													type="button"
+													on:click={() => { selectedModelId = am.id; }}
+												>
+													<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+														<path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+													</svg>
+												</button>
+
+												<ModelMenu
+													user={$user}
+													model={am}
+													exportHandler={() => exportModelHandler(am)}
+													pinModelHandler={() => pinModelHandler(am.id)}
+													onClose={() => {}}
+												>
+													<button
+														class="self-center w-fit text-sm p-1.5 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
+														type="button"
+													>
+														<EllipsisHorizontal className="size-5" />
+													</button>
+												</ModelMenu>
+
+															<div class="ml-1 {(gm && (gm.is_loaded || isProcessing)) ? 'pointer-events-none opacity-50' : ''}">
+													<Tooltip content={(am?.is_active ?? true) ? $i18n.t('Enabled') : $i18n.t('Disabled')}>
+														<Switch
+															bind:state={am.is_active}
+															on:change={async () => { toggleModelHandler(am); }}
+														/>
+													</Tooltip>
+												</div>
+											{/if}
+										{/if}
+
+									</div>
+								</div>
+							</div>
+						{/each}
+					{/if}
+
+					{#if mergedModels.length > perPage}
+						<Pagination bind:page={currentPage} count={mergedModels.length} {perPage} />
+					{/if}
+
+				</div>
+			</div>
+		</div>
+
+	{:else}
+		<!-- ─── Model Editor ──────────────────────────────────────────────── -->
+		<div style="height: 60vh; min-height: 0; width: 100%; display: flex; flex-direction: column; overflow: hidden; padding: 1rem 1rem 1rem;">
+			<ModelEditor
+				edit
+				model={adminModels?.find((m) => m.id === selectedModelId)}
+				preset={false}
+				onSubmit={async (model) => {
+					await upsertModelHandler(model);
+					selectedModelId = null;
+				}}
+				onBack={async () => {
+					selectedModelId = null;
+					await initAdmin();
+				}}
+			/>
+		</div>
+	{/if}
+
+{:else}
+	<!-- Loading admin models — focus-trap needs at least one tabbable node -->
+	<div class="flex items-center justify-center py-16 px-8">
+		<button class="sr-only" tabindex="0" aria-hidden="true"> </button>
+		<svg class="w-6 h-6 animate-spin text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+			<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+			<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+		</svg>
+	</div>
+{/if}

@@ -5,13 +5,17 @@ import os
 import uuid
 import html
 import base64
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="pydub")
 from functools import lru_cache
 try:
     from pydub import AudioSegment
     from pydub.silence import split_on_silence
+    from pydub.utils import mediainfo
 except ImportError:
     AudioSegment = None
     split_on_silence = None
+    mediainfo = None
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
@@ -74,16 +78,6 @@ log = logging.getLogger(__name__)
 
 SPEECH_CACHE_DIR = CACHE_DIR / "audio" / "speech"
 SPEECH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
-
-##########################################
-#
-# Utility functions
-#
-##########################################
-
-from pydub import AudioSegment
-from pydub.utils import mediainfo
 
 
 def is_audio_conversion_required(file_path):
