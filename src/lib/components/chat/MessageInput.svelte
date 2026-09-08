@@ -107,6 +107,7 @@
 	import QueuedMessageItem from './MessageInput/QueuedMessageItem.svelte';
 
 	const i18n = getContext('i18n');
+	const PASTED_TEXT_FULL_CONTEXT_LINE_LIMIT = 1000;
 
 	export let onUpload: Function = (e) => {};
 	export let onChange: Function = () => {};
@@ -979,12 +980,18 @@
 
 		if (!shiftKey && pastedText.length > PASTED_TEXT_CHARACTER_LIMIT) {
 			event.preventDefault();
+			const pastedTextLineCount = pastedText.split(/\r\n|\r|\n/).length;
 			const file = new File(
 				[new Blob([pastedText], { type: 'text/plain' })],
 				'Texto colado.txt',
 				{ type: 'text/plain' }
 			);
-			await uploadFileHandler(file, true, { context: 'full', name: 'Texto colado' });
+			await uploadFileHandler(file, true, {
+				name: 'Texto colado',
+				...(pastedTextLineCount <= PASTED_TEXT_FULL_CONTEXT_LINE_LIMIT
+					? { context: 'full' }
+					: {})
+			});
 			return;
 		}
 
@@ -1659,7 +1666,7 @@
 							<div class="{isCompact ? 'flex-1 min-w-0 px-1 flex items-center' : 'px-2.5'}">
 								<div
 									bind:this={chatInputContainerEl}
-									class="scrollbar-hidden rtl:text-right ltr:text-left bg-transparent dark:text-gray-100 outline-hidden w-full px-1 resize-none h-fit max-h-96 overflow-auto {files.length ===
+									class="scrollbar-hidden chat-input-scroll rtl:text-right ltr:text-left bg-transparent dark:text-gray-100 outline-hidden w-full px-1 resize-none h-fit max-h-47 overflow-auto {files.length ===
 									0
 										? atSelectedModel !== undefined
 											? 'pt-1.5'
@@ -2388,6 +2395,11 @@
 {/if}
 
 <style>
+	.chat-input-scroll::-webkit-scrollbar-track {
+		margin-top: 0.625rem;
+		margin-bottom: 0.625rem;
+	}
+
 	.attachment-strip {
 		overscroll-behavior-x: contain;
 		scrollbar-color: transparent transparent;

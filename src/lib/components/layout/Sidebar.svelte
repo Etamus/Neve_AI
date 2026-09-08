@@ -45,6 +45,7 @@
 	import { checkActiveChats } from '$lib/apis/tasks';
 	import { NEVEAI_API_BASE_URL, NEVEAI_BASE_URL } from '$lib/constants';
 	import { generateInitialsImage } from '$lib/utils';
+	import { getUserDisplayName } from '$lib/utils/user';
 
 	import UserMenu from './Sidebar/UserMenu.svelte';
 	import ChatItem from './Sidebar/ChatItem.svelte';
@@ -73,7 +74,8 @@
 
 	let selectedChatId = null;
 	const USER_NAME_MAX_LENGTH = 21;
-	const getLimitedUserName = (name?: string | null) => (name ?? '').slice(0, USER_NAME_MAX_LENGTH);
+	const getLimitedUserName = (name?: string | null) =>
+		getUserDisplayName(name).slice(0, USER_NAME_MAX_LENGTH);
 	let showCreateChannel = false;
 
 	// Pagination variables

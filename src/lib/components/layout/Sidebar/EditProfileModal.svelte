@@ -5,6 +5,7 @@
 	import { user } from '$lib/stores';
 	import { updateUserProfile, getSessionUser } from '$lib/apis/auths';
 	import { generateInitialsImage } from '$lib/utils';
+	import { getCustomUserName, getUserDisplayName } from '$lib/utils/user';
 	import { NEVEAI_BASE_URL } from '$lib/constants';
 
 	import Modal from '$lib/components/common/Modal.svelte';
@@ -28,7 +29,7 @@
 	}
 
 	const init = async () => {
-		username = $user?.username ?? $user?.name ?? '';
+		username = getCustomUserName($user?.name);
 		const raw = $user?.profile_image_url ?? '';
 		profileImageUrl = raw === '/user.png' || raw.endsWith('/user.png') ? '' : raw;
 		await tick();
@@ -91,12 +92,7 @@
 		loading = true;
 
 		const trimmedUsername = (username ?? '').trim().slice(0, USER_NAME_MAX_LENGTH);
-
-		if (!trimmedUsername) {
-			toast.error($i18n.t('Username is required'));
-			loading = false;
-			return;
-		}
+		const displayName = getUserDisplayName(trimmedUsername);
 
 		let finalImage = profileImageUrl;
 		if (!finalImage) {
@@ -104,8 +100,8 @@
 		}
 
 		const updated = await updateUserProfile(localStorage.token, {
-			name: trimmedUsername,
-			username: trimmedUsername,
+			name: displayName,
+			username: displayName,
 			profile_image_url: finalImage
 		}).catch((err) => {
 			toast.error(`${err}`);
@@ -235,9 +231,8 @@
 						bind:value={username}
 						maxlength={USER_NAME_MAX_LENGTH}
 						class="w-full text-sm bg-transparent outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700"
-						placeholder={$i18n.t('Nome de usuário')}
+						placeholder="Digite seu nome"
 						autocomplete="off"
-						required
 					/>
 				</div>
 			</div>

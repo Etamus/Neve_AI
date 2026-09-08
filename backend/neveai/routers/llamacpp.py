@@ -1771,6 +1771,14 @@ async def generate_chat_completion(
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",
+                "X-Neve-Budgeted-Reasoning": (
+                    "true"
+                    if reasoning_mode == "reasoning"
+                    and reasoning_extended is not None
+                    and not reasoning_extended_enabled
+                    and thinking_budget_tokens is not None
+                    else "false"
+                ),
             },
         )
     else:

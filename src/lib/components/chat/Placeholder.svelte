@@ -20,6 +20,7 @@
 		currentChatPage
 	} from '$lib/stores';
 	import { sanitizeResponseContent, extractCurlyBraceWords } from '$lib/utils';
+	import { getUserFirstName } from '$lib/utils/user';
 	import { NEVEAI_API_BASE_URL, NEVEAI_BASE_URL } from '$lib/constants';
 
 	import MessageInput from './MessageInput.svelte';
@@ -74,6 +75,8 @@
 	}
 
 	$: models = selectedModels.map((id) => $_models.find((m) => m.id === id));
+	$: userName = getUserFirstName($user?.name);
+	$: greeting = userName ? `O que quer explorar hoje, ${userName}?` : 'O que quer explorar hoje?';
 </script>
 
 <div class="m-auto w-full max-w-6xl px-2 @2xl:px-20 -translate-y-20 py-24 text-center">
@@ -96,14 +99,14 @@
 					}}
 				/>
 			{:else}
-				<div class="flex max-w-xl flex-col items-center justify-center px-5 mb-8">
+				<div class="flex w-full max-w-full flex-col items-center justify-center px-5 mb-8">
 					<div
-						class=" text-3xl @sm:text-3xl flex items-center"
+						class="max-w-full overflow-hidden text-ellipsis whitespace-nowrap pb-1 text-3xl leading-[1.25] @sm:text-3xl"
 						in:fade={{ duration: 100 }}
 					>
 						{$temporaryChatEnabled
 							? $i18n.t('Temporary Chat')
-							: 'O que você quer explorar hoje?'}
+							: greeting}
 					</div>
 					{#if $temporaryChatEnabled}
 						<div class="mt-2 text-sm font-normal text-gray-500 dark:text-gray-400" in:fade={{ duration: 100 }}>

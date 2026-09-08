@@ -8,6 +8,7 @@
 	import { blur, fade } from 'svelte/transition';
 
 	import { sanitizeResponseContent } from '$lib/utils';
+	import { getUserFirstName } from '$lib/utils/user';
 
 	const i18n = getContext('i18n');
 
@@ -25,6 +26,8 @@
 	}
 
 	$: models = modelIds.map((id) => $_models.find((m) => m.id === id));
+	$: userName = getUserFirstName($user?.name);
+	$: greeting = userName ? `O que quer explorar hoje, ${userName}?` : 'O que quer explorar hoje?';
 
 	onMount(() => {
 		mounted = true;
@@ -36,11 +39,14 @@
 		<div
 			class=" mt-2 mb-4 text-3xl text-gray-800 dark:text-gray-100 text-left flex items-center gap-4"
 		>
-			<div>
-				<div class=" capitalize" in:fade={{ duration: 200 }}>
+			<div class="min-w-0 max-w-full">
+				<div
+					class="max-w-full overflow-hidden text-ellipsis whitespace-nowrap pb-1 leading-[1.25] capitalize"
+					in:fade={{ duration: 200 }}
+				>
 					{$temporaryChatEnabled
 						? $i18n.t('Temporary Chat')
-						: 'O que você quer explorar hoje?'}
+						: greeting}
 				</div>
 				{#if $temporaryChatEnabled}
 					<div class="mt-2 text-sm font-normal normal-case text-gray-500 dark:text-gray-400" in:fade={{ duration: 100 }}>

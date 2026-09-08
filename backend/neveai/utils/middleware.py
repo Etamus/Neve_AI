@@ -6244,11 +6244,16 @@ async def streaming_chat_response_handler(response, ctx):
             reasoning_extended_enabled = reasoning_extended_value is True or str(
                 reasoning_extended_value
             ).lower() == "true"
-            discard_excess_search_reasoning = bool(
+            has_source_context = bool(
                 (
                     request_features.get("web_search")
                     or request_features.get("deep_search")
+                    or metadata.get("files")
+                    or metadata.get("sources")
                 )
+            )
+            discard_excess_source_reasoning = bool(
+                has_source_context
                 and metadata.get("reasoning_mode") == "reasoning"
                 and not reasoning_extended_enabled
             )
@@ -6332,7 +6337,7 @@ async def streaming_chat_response_handler(response, ctx):
                             )
                         )
                         if (
-                            discard_excess_search_reasoning
+                            discard_excess_source_reasoning
                             and (
                                 has_reasoning_continuation(output, tags)
                                 or explicit_reasoning_restart
@@ -6346,9 +6351,6 @@ async def streaming_chat_response_handler(response, ctx):
                             return tag_output_handler(content_type, tags, output)
 
                         if output[-1].get("_reasoning_boundary_pending"):
-                            # Do not expose the first post-</think> fragment until it
-                            # is long enough to distinguish a real answer from a
-                            # malformed continuation of the same reasoning block.
                             if len(item_text.strip()) >= 96:
                                 output[-1].pop(
                                     "_reasoning_boundary_pending", None
@@ -6644,12 +6646,21 @@ async def streaming_chat_response_handler(response, ctx):
                         },
                     )
 
-                async def stream_body_handler(response, form_data):
+                async def stream_body_handler(
+                    response, form_data, allow_budgeted_answer_restart=True
+                ):
                     nonlocal content
                     nonlocal usage
                     nonlocal output
 
                     response_tool_calls = []
+                    restart_budgeted_answer = False
+                    budgeted_reasoning = bool(
+                        response.headers.get(
+                            "X-Neve-Budgeted-Reasoning", ""
+                        ).lower()
+                        == "true"
+                    )
 
                     delta_count = 0
                     delta_chunk_size = max(
@@ -6945,7 +6956,7 @@ async def streaming_chat_response_handler(response, ctx):
                                         or delta.get("thinking")
                                     )
                                     if (
-                                        discard_excess_search_reasoning
+                                        discard_excess_source_reasoning
                                         and any(
                                             item.get("type") == "reasoning"
                                             and item.get("status") == "completed"
@@ -7163,6 +7174,37 @@ async def streaming_chat_response_handler(response, ctx):
                                                 output,
                                             )
 
+                                        if (
+                                            allow_budgeted_answer_restart
+                                            and budgeted_reasoning
+                                            and len(output) >= 2
+                                            and output[-1].get("type") == "message"
+                                            and output[-1].get(
+                                                "_reasoning_boundary_pending"
+                                            )
+                                            and output[-2].get("type") == "reasoning"
+                                            and output[-2].get("status") == "completed"
+                                        ):
+                                            # The budget can switch llama.cpp to the
+                                            # answer channel before the model finishes
+                                            # its thought. Discard that ambiguous first
+                                            # fragment and generate the answer explicitly.
+                                            output.pop()
+                                            restart_budgeted_answer = True
+                                            await flush_pending_delta_data()
+                                            await event_emitter(
+                                                {
+                                                    "type": "chat:completion",
+                                                    "data": {
+                                                        "content": serialize_output(
+                                                            output,
+                                                            hide_reasoning=False,
+                                                        )
+                                                    },
+                                                }
+                                            )
+                                            break
+
                                         if DETECT_CODE_INTERPRETER:
                                             output, end = tag_output_handler(
                                                 "code_interpreter",
@@ -7247,6 +7289,40 @@ async def streaming_chat_response_handler(response, ctx):
 
                     if response.background:
                         await response.background()
+
+                    if restart_budgeted_answer:
+                        output.append(
+                            {
+                                "type": "message",
+                                "id": output_id("msg"),
+                                "status": "in_progress",
+                                "role": "assistant",
+                                "content": [{"type": "output_text", "text": ""}],
+                            }
+                        )
+                        answer_form_data = {
+                            **form_data,
+                            "stream": True,
+                            "reasoning_mode": "quick",
+                            "no_think": True,
+                        }
+                        answer_form_data.pop("reasoning_extended", None)
+                        answer_response = await generate_chat_completion(
+                            request,
+                            answer_form_data,
+                            user,
+                            bypass_system_prompt=True,
+                        )
+                        if isinstance(answer_response, StreamingResponse):
+                            # Generation has already been configured with thinking
+                            # disabled. Keep the completed first-pass reasoning
+                            # visible while consuming the final-answer stream.
+                            answer_form_data.pop("no_think", None)
+                            await stream_body_handler(
+                                answer_response,
+                                answer_form_data,
+                                allow_budgeted_answer_restart=False,
+                            )
 
                 await stream_body_handler(response, form_data)
 

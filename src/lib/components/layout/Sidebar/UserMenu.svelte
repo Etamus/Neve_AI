@@ -28,6 +28,7 @@
 	import XMark from '$lib/components/icons/XMark.svelte';
 	import { updateUserStatus } from '$lib/apis/users';
 	import { toast } from 'svelte-sonner';
+	import { getUserDisplayName } from '$lib/utils/user';
 
 	const i18n = getContext('i18n');
 
@@ -113,7 +114,7 @@
 
 					<div class=" flex flex-col w-full flex-1">
 						<div class="font-medium line-clamp-1 pr-2">
-							{$user.name}
+							{getUserDisplayName($user?.name)}
 						</div>
 
 						<div class=" flex items-center gap-2">
