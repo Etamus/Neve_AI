@@ -609,17 +609,22 @@
 											}
 										}}
 									>
-										<img
-											src={info.meta.profile_image_url || DEFAULT_MODEL_PROFILE_IMAGE_URL}
-											alt="model profile"
-											class="rounded-lg size-20 md:size-36 object-cover shrink-0 transition-[filter] duration-150 {!isCatalogIconLocked
-												? 'group-hover:blur-[1px] group-hover:brightness-75'
-												: ''}"
-										/>
+										{#key hasCustomModelImage}
+											<img
+												src={info.meta.profile_image_url || DEFAULT_MODEL_PROFILE_IMAGE_URL}
+												alt="model profile"
+												class="rounded-lg size-20 md:size-36 object-cover shrink-0 transition-[filter] duration-150 {!isCatalogIconLocked &&
+												hasCustomModelImage
+													? 'group-hover:blur-[1px] group-hover:brightness-75'
+													: ''}"
+											/>
+										{/key}
 
 										{#if !isCatalogIconLocked}
 											<div
-												class="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 text-white opacity-0 transition-opacity duration-150 group-hover:bg-black/10 group-hover:opacity-100"
+												class="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 text-white opacity-0 transition-[opacity,background-color,backdrop-filter] duration-150 group-hover:bg-black/10 group-hover:opacity-100 {hasCustomModelImage
+													? ''
+													: 'group-hover:backdrop-blur-[1px]'}"
 											>
 												{#if hasCustomModelImage}
 													<XMark className="size-7 drop-shadow-md" />
