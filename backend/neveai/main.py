@@ -623,6 +623,25 @@ async def lifespan(app: FastAPI):
     # Store reference to main event loop for sync->async calls (e.g., embedding generation)
     # This allows sync functions to schedule work on the main loop without blocking health checks
     app.state.main_loop = asyncio.get_running_loop()
+    previous_exception_handler = app.state.main_loop.get_exception_handler()
+
+    def handle_event_loop_exception(loop, context):
+        exception = context.get("exception")
+        handle = str(context.get("handle") or "")
+        if (
+            isinstance(exception, ConnectionResetError)
+            and getattr(exception, "winerror", None) == 10054
+            and "_ProactorBasePipeTransport._call_connection_lost" in handle
+        ):
+            log.debug("Client closed a partial-content connection")
+            return
+        if previous_exception_handler is not None:
+            previous_exception_handler(loop, context)
+        else:
+            loop.default_exception_handler(context)
+
+    if os.name == "nt":
+        app.state.main_loop.set_exception_handler(handle_event_loop_exception)
 
     app.state.instance_id = INSTANCE_ID
     start_logger()
@@ -725,6 +744,9 @@ async def lifespan(app: FastAPI):
             log.warning(f"Failed to initialize tool/terminal servers at startup: {e}")
 
     yield
+
+    if os.name == "nt":
+        app.state.main_loop.set_exception_handler(previous_exception_handler)
 
     if hasattr(app.state, "redis_task_command_listener"):
         app.state.redis_task_command_listener.cancel()

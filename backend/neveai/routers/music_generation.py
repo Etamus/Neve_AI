@@ -36,20 +36,11 @@ router = APIRouter()
 
 ACE_STEP_VERSION = "v0.1.8"
 ACE_STEP_MODEL = "acestep-v15-turbo"
-ACE_STEP_LM_MODEL = "acestep-5Hz-lm-0.6B"
-ACE_STEP_LM_REPO = "ACE-Step/acestep-5Hz-lm-0.6B"
+ACE_STEP_MAIN_REPO = "ACE-Step/Ace-Step1.5"
 ACE_STEP_ARCHIVE_URL = (
     f"https://github.com/ace-step/ACE-Step-1.5/archive/refs/tags/{ACE_STEP_VERSION}.zip"
 )
 ACE_STEP_RUNTIME_REVISION = "neve-ace-step-1.5-turbo-v1"
-PORTUGUESE_MUSIC_INSTRUCTION = (
-    "Siga fielmente o pedido do usuário. Preserve o tema, o gênero, o clima, "
-    "os instrumentos e todos os detalhes solicitados, sem substituir o assunto "
-    "nem acrescentar uma proposta diferente. Quando houver letra ou voz, escreva "
-    "e cante exclusivamente em português do Brasil, sem palavras ou trechos em "
-    "outro idioma.\n\nPedido do usuário:\n"
-)
-
 MUSIC_ROOT = CACHE_DIR / "music_generation"
 ACE_STEP_SOURCE_DIR = MUSIC_ROOT / "ACE-Step-1.5"
 ACE_STEP_MARKER = ACE_STEP_SOURCE_DIR / ".neve-runtime-ready"
@@ -61,42 +52,41 @@ ACE_STEP_TORCH_CACHE = MUSIC_ROOT / "torchinductor"
 ProgressCallback = Callable[[str], Awaitable[None]]
 
 
-def _build_music_generation_request(
-    prompt: str, music_plan: Optional[dict] = None
-) -> dict:
+def _build_music_generation_request(prompt: str, music_plan: dict) -> dict:
+    instrumental = bool(music_plan.get("instrumental"))
+    lyrics = "" if instrumental else str(music_plan.get("lyrics") or "").strip()
     request_data = {
-        "thinking": music_plan is None,
+        "thinking": False,
         "model": ACE_STEP_MODEL,
-        "lm_model_path": ACE_STEP_LM_MODEL,
-        "lm_backend": "pt",
-        "lm_temperature": 0.55,
-        "lm_top_p": 0.9,
         "vocal_language": "pt",
         "use_cot_caption": False,
         "use_cot_language": False,
         "inference_steps": 8,
         "batch_size": 1,
         "audio_format": "flac",
+        "sample_mode": False,
+        "prompt": str(music_plan.get("caption") or prompt).strip(),
+        "lyrics": "[Instrumental]" if instrumental else lyrics,
     }
-    if music_plan:
-        instrumental = bool(music_plan.get("instrumental"))
-        request_data.update(
-            {
-                "sample_mode": False,
-                "prompt": str(music_plan.get("caption") or prompt).strip(),
-                "lyrics": (
-                    "[Instrumental]"
-                    if instrumental
-                    else str(music_plan.get("lyrics") or "").strip()
-                ),
-            }
+    if lyrics:
+        lyric_lines = [
+            line.strip()
+            for line in lyrics.splitlines()
+            if line.strip()
+            and not (line.strip().startswith("[") and line.strip().endswith("]"))
+        ]
+        word_count = sum(
+            len(re.findall(r"\b\w+\b", line, flags=re.UNICODE))
+            for line in lyric_lines
         )
-    else:
-        request_data.update(
-            {
-                "sample_mode": True,
-                "sample_query": f"{PORTUGUESE_MUSIC_INSTRUCTION}{prompt}",
-            }
+        section_count = sum(
+            line.strip().startswith("[") and line.strip().endswith("]")
+            for line in lyrics.splitlines()
+        )
+        # Avoid forcing long supplied lyrics into the implicit one-minute target.
+        request_data["audio_duration"] = round(
+            max(45.0, min(360.0, word_count / 2.1 + min(section_count, 16) * 1.5)),
+            1,
         )
     return request_data
 
@@ -157,7 +147,7 @@ class AceStepRuntime:
         self._generation_lock = asyncio.Lock()
         self._process: Optional[asyncio.subprocess.Process] = None
         self._log_task: Optional[asyncio.Task] = None
-        self._log_tail: deque[str] = deque(maxlen=40)
+        self._log_tail: deque[str] = deque(maxlen=120)
         self._port: Optional[int] = None
         self._cancel_requested = False
 
@@ -184,11 +174,21 @@ class AceStepRuntime:
         )
         output: deque[str] = deque(maxlen=35)
         assert process.stdout is not None
-        while line := await process.stdout.readline():
-            decoded = line.decode("utf-8", errors="replace").rstrip()
-            output.append(decoded)
-            log.debug("ACE-Step setup: %s", decoded)
-        return_code = await process.wait()
+        try:
+            while line := await process.stdout.readline():
+                decoded = line.decode("utf-8", errors="replace").rstrip()
+                output.append(decoded)
+                log.debug("ACE-Step setup: %s", decoded)
+            return_code = await process.wait()
+        except asyncio.CancelledError:
+            if process.returncode is None:
+                process.terminate()
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=5)
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
+            raise
         if return_code != 0:
             details = "\n".join(output)
             raise RuntimeError(
@@ -253,27 +253,84 @@ class AceStepRuntime:
         weight_names = (
             "model.safetensors",
             "model.safetensors.index.json",
+            "diffusion_pytorch_model.safetensors",
             "pytorch_model.bin",
             "pytorch_model.bin.index.json",
         )
         return any((model_dir / name).is_file() for name in weight_names)
 
-    async def _ensure_lm_model(self, progress: ProgressCallback) -> None:
-        model_dir = ACE_STEP_SOURCE_DIR / "checkpoints" / ACE_STEP_LM_MODEL
-        if self._has_model_weights(model_dir):
+    @classmethod
+    def _generation_component_ready(cls, model_dir: Path) -> bool:
+        return (model_dir / "config.json").is_file() and cls._has_model_weights(
+            model_dir
+        )
+
+    async def _ensure_generation_models(self, progress: ProgressCallback) -> None:
+        required_dirs = (
+            ACE_STEP_SOURCE_DIR / "checkpoints" / ACE_STEP_MODEL,
+            ACE_STEP_SOURCE_DIR / "checkpoints" / "Qwen3-Embedding-0.6B",
+            ACE_STEP_SOURCE_DIR / "checkpoints" / "vae",
+        )
+        if all(self._generation_component_ready(path) for path in required_dirs):
             return
 
         await progress("Baixando o modelo...")
+        checkpoints_dir = ACE_STEP_SOURCE_DIR / "checkpoints"
         download_script = (
             "from huggingface_hub import snapshot_download; "
-            f"snapshot_download(repo_id={ACE_STEP_LM_REPO!r}, "
-            f"local_dir={str(model_dir)!r}, cache_dir={str(ACE_STEP_HF_CACHE)!r})"
+            f"snapshot_download(repo_id={ACE_STEP_MAIN_REPO!r}, "
+            f"local_dir={str(checkpoints_dir)!r}, "
+            "allow_patterns=['config.json', 'acestep-v15-turbo/*', "
+            "'Qwen3-Embedding-0.6B/*', 'vae/*'])"
         )
-        await self._run_setup_command(
-            [str(_runtime_python()), "-c", download_script]
+        initial_size = await asyncio.to_thread(self._directory_size, checkpoints_dir)
+        download_task = asyncio.create_task(
+            self._run_setup_command([str(_runtime_python()), "-c", download_script])
         )
-        if not self._has_model_weights(model_dir):
-            raise RuntimeError("O download do modelo não foi concluído.")
+        last_size = initial_size
+        try:
+            while not download_task.done():
+                done, _ = await asyncio.wait({download_task}, timeout=2)
+                if done:
+                    break
+                current_size = await asyncio.to_thread(
+                    self._directory_size, checkpoints_dir
+                )
+                if current_size > last_size:
+                    downloaded = current_size - initial_size
+                    await progress(
+                        f"Baixando o modelo... {self._format_size(downloaded)}"
+                    )
+                    last_size = current_size
+            await download_task
+        finally:
+            if not download_task.done():
+                download_task.cancel()
+                try:
+                    await download_task
+                except asyncio.CancelledError:
+                    pass
+        if not all(self._generation_component_ready(path) for path in required_dirs):
+            raise RuntimeError("O download dos componentes do modelo não foi concluído.")
+
+    @staticmethod
+    def _directory_size(directory: Path) -> int:
+        if not directory.exists():
+            return 0
+        total = 0
+        for root, _, filenames in os.walk(directory):
+            for filename in filenames:
+                try:
+                    total += (Path(root) / filename).stat().st_size
+                except OSError:
+                    pass
+        return total
+
+    @staticmethod
+    def _format_size(size: int) -> str:
+        if size >= 1024**3:
+            return f"{size / 1024**3:.1f} GB"
+        return f"{size / 1024**2:.0f} MB"
 
     @staticmethod
     def _available_port() -> int:
@@ -301,9 +358,7 @@ class AceStepRuntime:
                 reported_download = True
                 await progress("Baixando o modelo...")
 
-    async def _start_server(
-        self, progress: ProgressCallback, initialize_lm: bool = True
-    ) -> str:
+    async def _start_server(self, progress: ProgressCallback) -> str:
         await self._stop_server()
         self._cancel_requested = False
         self._log_tail.clear()
@@ -327,9 +382,7 @@ class AceStepRuntime:
                 "ACESTEP_QUEUE_WORKERS": "1",
                 "ACESTEP_QUEUE_MAXSIZE": "1",
                 "ACESTEP_CONFIG_PATH": ACE_STEP_MODEL,
-                "ACESTEP_INIT_LLM": "true" if initialize_lm else "false",
-                "ACESTEP_LM_MODEL_PATH": ACE_STEP_LM_MODEL,
-                "ACESTEP_LM_BACKEND": "pt",
+                "ACESTEP_INIT_LLM": "false",
                 "ACESTEP_DOWNLOAD_SOURCE": "huggingface",
                 "ACESTEP_NO_INIT": "true",
                 "ACESTEP_CHECK_UPDATE": "false",
@@ -412,7 +465,7 @@ class AceStepRuntime:
         self,
         prompt: str,
         progress: ProgressCallback,
-        music_plan: Optional[dict] = None,
+        music_plan: dict,
     ) -> dict:
         prompt = prompt.strip()
         if not prompt:
@@ -420,21 +473,17 @@ class AceStepRuntime:
 
         async with self._generation_lock:
             await self.ensure_installed(progress)
-            if music_plan is None:
-                await self._ensure_lm_model(progress)
+            await self._ensure_generation_models(progress)
             try:
-                base_url = await self._start_server(
-                    progress, initialize_lm=music_plan is None
-                )
+                base_url = await self._start_server(progress)
                 await progress("Carregando o modelo...")
                 timeout = httpx.Timeout(connect=15, read=120, write=30, pool=15)
                 async with httpx.AsyncClient(timeout=timeout) as client:
                     release_response = await client.post(
                         f"{base_url}/release_task",
                         json=_build_music_generation_request(prompt, music_plan),
-                        # The first request loads (and may download) both model tiers
-                        # before returning its task id. Keep connection limits, but do
-                        # not abort a healthy first-time setup because of its duration.
+                        # The first request loads the diffusion model before returning
+                        # its task id, which can take a while on slower hardware.
                         timeout=httpx.Timeout(connect=15, read=None, write=30, pool=15),
                     )
                     release_response.raise_for_status()
@@ -444,14 +493,47 @@ class AceStepRuntime:
                     task_id = str(release_data["task_id"])
 
                     last_description = ""
+                    consecutive_transport_errors = 0
                     for _ in range(1800):
                         if self._cancel_requested:
                             raise asyncio.CancelledError
                         await asyncio.sleep(2)
-                        query_response = await client.post(
-                            f"{base_url}/query_result",
-                            json={"task_id_list": [task_id]},
-                        )
+                        try:
+                            query_response = await client.post(
+                                f"{base_url}/query_result",
+                                json={"task_id_list": [task_id]},
+                            )
+                            consecutive_transport_errors = 0
+                        except httpx.TransportError as exc:
+                            process = self._process
+                            if process is not None and process.returncode is None:
+                                consecutive_transport_errors += 1
+                                if consecutive_transport_errors < 5:
+                                    log.warning(
+                                        "ACE-Step query connection interrupted; retrying (%s/4): %r",
+                                        consecutive_transport_errors,
+                                        exc,
+                                    )
+                                    await asyncio.sleep(1)
+                                    continue
+
+                            sidecar_log = "\n".join(self._log_tail)
+                            runtime_errors = re.findall(
+                                r"(?:RuntimeError|OSError|Error):\s*([^\r\n]+)",
+                                sidecar_log,
+                            )
+                            detail = runtime_errors[-1] if runtime_errors else ""
+                            if process is not None and process.returncode is not None:
+                                message = (
+                                    "ACE-Step encerrou durante a geração "
+                                    f"(código {process.returncode})."
+                                )
+                            else:
+                                message = (
+                                    "A comunicação com o ACE-Step foi interrompida "
+                                    "durante a geração."
+                                )
+                            raise RuntimeError(f"{message} {detail}".strip()) from exc
                         query_response.raise_for_status()
                         query_data = self._unwrap(query_response.json())
                         if not isinstance(query_data, list) or not query_data:

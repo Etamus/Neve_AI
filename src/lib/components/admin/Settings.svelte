@@ -76,7 +76,7 @@
 			id: 'stable-diffusion',
 			title: 'Criar imagem',
 			route: '/admin/settings/stable-diffusion',
-			keywords: ['stable diffusion', 'image generation', 'geração de imagem', 'sdxl', 'turbo', 'gpu']
+			keywords: ['stable diffusion', 'image generation', 'geração de imagem', 'z-image', 'turbo', 'gpu']
 		}
 	];
 

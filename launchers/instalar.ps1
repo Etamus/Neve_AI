@@ -1827,7 +1827,9 @@ USER_AGENT=NeveAI
             $env:PIP_DISABLE_PIP_VERSION_CHECK = '1'
             $env:PIP_NO_INPUT = '1'
             $env:PIP_DEFAULT_TIMEOUT = '60'
-            $env:PIP_PROGRESS_BAR = 'raw'
+            # Build-isolation subprocesses inherit this value even when the parent
+            # pip command receives --progress-bar explicitly.
+            $env:PIP_PROGRESS_BAR = 'off'
             $env:PYTHONUNBUFFERED = '1'
             $pipLog = Join-Path (Split-Path -Parent $LOG) 'pip-install.log'
             try { [System.IO.File]::WriteAllText($pipLog, '', [System.Text.UTF8Encoding]::new($false)) } catch {}
@@ -2027,11 +2029,11 @@ with open(sys.argv[1], 'w', encoding='utf-8') as file:
 
             P 33 'Preparando ferramentas de instalação'
             Set-InstallState 'pip_tooling'
-            $rc = Invoke-PipInstall -InstallArgs @('pip','setuptools','wheel') -Desc 'pip/setuptools/wheel'
+            $rc = Invoke-PipInstall -InstallArgs @('--upgrade','pip','setuptools','wheel') -Desc 'pip/setuptools/wheel'
             if ($rc -ne 0) {
                 Log "[!] Preparação de pip/setuptools/wheel falhou (exit $rc). Reparando pip e tentando novamente." 'warn'
                 $repairRc = Repair-PipBootstrap
-                if ($repairRc -eq 0) { $rc = Invoke-PipInstall -InstallArgs @('pip','setuptools','wheel') -Desc 'pip/setuptools/wheel pós-reparo' }
+                if ($repairRc -eq 0) { $rc = Invoke-PipInstall -InstallArgs @('--upgrade','pip','setuptools','wheel') -Desc 'pip/setuptools/wheel pós-reparo' }
                 if ($rc -ne 0) { throw "Falha ao preparar pip/setuptools/wheel após múltiplas rotas (exit $rc). Tentativas: $($script:LastPipFailures -join '; '). Veja logs\pip-install.log." }
             }
             [void](Refresh-InstalledPackageCache)

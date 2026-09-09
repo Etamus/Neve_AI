@@ -1076,27 +1076,29 @@
 							}
 						}}
 					>
-						<div class="pt-1.5">
-							<Folders
-								bind:folderRegistry
-								{folders}
-								{shiftKey}
-								onDelete={(folderId) => {
-									selectedFolder.set(null);
-									initChatList();
-								}}
-								on:update={() => {
-									initChatList();
-								}}
-								on:import={(e) => {
-									const { folderId, items } = e.detail;
-									importChatHandler(items, false, folderId);
-								}}
-								on:change={async () => {
-									initChatList();
-								}}
-							/>
-						</div>
+						{#if Object.keys(folders).length > 0}
+							<div class="pt-1.5">
+								<Folders
+									bind:folderRegistry
+									{folders}
+									{shiftKey}
+									onDelete={(folderId) => {
+										selectedFolder.set(null);
+										initChatList();
+									}}
+									on:update={() => {
+										initChatList();
+									}}
+									on:import={(e) => {
+										const { folderId, items } = e.detail;
+										importChatHandler(items, false, folderId);
+									}}
+									on:change={async () => {
+										initChatList();
+									}}
+								/>
+							</div>
+						{/if}
 					</Folder>
 				{/if}
 

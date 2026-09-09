@@ -2,7 +2,7 @@
 Z-Image-Turbo local -- geracao de imagem via stable-diffusion.cpp.
 
 O runtime usa o diffusion model GGUF do Z-Image-Turbo, Qwen3-4B como text
-encoder e o VAE do FLUX.1-schnell, conforme suporte oficial do sd-cli.
+encoder e o VAE publico distribuido com o Z-Image-Turbo.
 
 Resolucao: 768 x 768
 Steps    : 8
@@ -63,8 +63,8 @@ ZIMAGE_REPO = "leejet/Z-Image-Turbo-GGUF"
 ZIMAGE_GGUF_FILE = "z_image_turbo-Q4_0.gguf"
 QWEN3_LLM_REPO = "unsloth/Qwen3-4B-Instruct-2507-GGUF"
 QWEN3_LLM_FILE = "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
-ZIMAGE_VAE_REPO = "black-forest-labs/FLUX.1-schnell"
-ZIMAGE_VAE_FILE = "ae.safetensors"
+ZIMAGE_VAE_REPO = "Comfy-Org/z_image_turbo"
+ZIMAGE_VAE_FILE = "split_files/vae/ae.safetensors"
 
 MAX_IMAGE_WIDTH = 768
 MAX_IMAGE_HEIGHT = 768
@@ -712,7 +712,7 @@ class _ZImageTurboPipeline:
                     )
                 )
 
-                log.info("Baixando/carregando VAE FLUX.1-schnell...")
+                log.info("Baixando/carregando VAE do Z-Image-Turbo...")
                 vae = Path(
                     hf_hub_download(
                         repo_id=ZIMAGE_VAE_REPO,

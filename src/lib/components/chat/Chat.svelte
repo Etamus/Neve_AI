@@ -3768,20 +3768,38 @@
 		);
 	};
 
+	const resolveLocalModelSelection = (modelId: string) => {
+		const selectedModel = $models.find((model) => model.id === modelId);
+		const baseModelId = selectedModel?.info?.base_model_id;
+		const localModelId =
+			(selectedModel as any)?.owned_by === 'llamacpp'
+				? modelId
+				: typeof baseModelId === 'string' && baseModelId.startsWith('local/')
+					? baseModelId
+					: null;
+
+		if (!localModelId) return null;
+		return {
+			modelId: localModelId,
+			model: $models.find((model) => model.id === localModelId) ?? selectedModel
+		};
+	};
+
 	const ensureLocalModelsReady = async (modelIds: string[]) => {
-		for (const modelId of modelIds) {
-			const model = $models.find((m) => m.id === modelId);
-			if (!model || (model as any).owned_by !== 'llamacpp') {
+		for (const selectedModelId of modelIds) {
+			const localSelection = resolveLocalModelSelection(selectedModelId);
+			if (!localSelection?.model) {
 				continue;
 			}
+			const { model, modelId } = localSelection;
 
 			try {
 				const loadedModels = await getLoadedLocalModels(localStorage.token);
 				const loadedModel = loadedModels.find((lm) => lm.id === modelId) ?? null;
 
-				if (stableDiffusionEnabled || musicGenerationEnabled) {
+				const mediaGenerationRequested = stableDiffusionEnabled || musicGenerationEnabled;
+				if (mediaGenerationRequested) {
 					stableDiffusionStandbyModel = loadedModel ?? loadedModels[0] ?? stableDiffusionStandbyModel;
-					continue;
 				}
 
 				const loadPlan = await resolveLocalModelLoadPlan(model, modelId, loadedModel);
@@ -3820,8 +3838,9 @@
 							loadPlan.tokenPrediction,
 							loadPlan.contextShift
 						);
+					let loadedResult;
 					try {
-						await doLoad();
+						loadedResult = await doLoad();
 					} catch (firstErr) {
 						const firstErrorMessage = normalizeLlamaCppErrorMessage(
 							firstErr,
@@ -3832,7 +3851,10 @@
 						}
 						console.warn('First load attempt failed, retrying in 3s...', firstErr);
 						await new Promise((resolve) => setTimeout(resolve, 3000));
-						await doLoad();
+						loadedResult = await doLoad();
+					}
+					if (mediaGenerationRequested && !stableDiffusionStandbyModel) {
+						stableDiffusionStandbyModel = loadedResult as LocalModel;
 					}
 					toast.success($i18n.t('Model loaded successfully!'));
 					models.set(await getModels(localStorage.token, null, false, true));
@@ -3870,16 +3892,17 @@
 		}
 
 		// ── LlamaCpp model-loaded check ──────────────────────────────
-		for (const modelId of selectedModels) {
-			const model = $models.find((m) => m.id === modelId);
-			if (model && (model as any).owned_by === 'llamacpp') {
+		for (const selectedModelId of selectedModels) {
+			const localSelection = resolveLocalModelSelection(selectedModelId);
+			if (localSelection?.model) {
+				const { model, modelId } = localSelection;
 				try {
 					const loadedModels = await getLoadedLocalModels(localStorage.token);
 					const loadedModel = loadedModels.find((lm) => lm.id === modelId) ?? null;
 
-					if (stableDiffusionEnabled || musicGenerationEnabled) {
+					const mediaGenerationRequested = stableDiffusionEnabled || musicGenerationEnabled;
+					if (mediaGenerationRequested) {
 						stableDiffusionStandbyModel = loadedModel ?? loadedModels[0] ?? stableDiffusionStandbyModel;
-						continue;
 					}
 
 					const loadPlan = await resolveLocalModelLoadPlan(model, modelId, loadedModel);
@@ -3915,8 +3938,9 @@
 									loadPlan.tokenPrediction,
 									loadPlan.contextShift
 								);
+							let loadedResult;
 							try {
-								await doLoad();
+								loadedResult = await doLoad();
 							} catch (firstErr) {
 								const firstErrorMessage = normalizeLlamaCppErrorMessage(
 									firstErr,
@@ -3927,7 +3951,10 @@
 								}
 								console.warn('First load attempt failed, retrying in 3s...', firstErr);
 								await new Promise((resolve) => setTimeout(resolve, 3000));
-								await doLoad();
+								loadedResult = await doLoad();
+							}
+							if (mediaGenerationRequested && !stableDiffusionStandbyModel) {
+								stableDiffusionStandbyModel = loadedResult as LocalModel;
 							}
 							toast.success($i18n.t('Model loaded successfully!'));
 							models.set(await getModels(localStorage.token, null, false, true));
